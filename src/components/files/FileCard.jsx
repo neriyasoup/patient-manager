@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import ConfirmDialog from '../ui/ConfirmDialog'
 
 const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg']
@@ -8,14 +8,39 @@ function isImage(name) {
   return IMAGE_EXTS.includes(ext)
 }
 
-export default function FileCard({ file, onDelete }) {
+export default function FileCard({ file, onDelete, onRename }) {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [newName, setNewName] = useState('')
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    if (renaming) inputRef.current?.focus()
+  }, [renaming])
 
   async function handleDelete() {
     setLoading(true)
     try { await onDelete(file) } finally { setLoading(false) }
     setConfirmOpen(false)
+  }
+
+  function startRename() {
+    setNewName(file.name)
+    setRenaming(true)
+  }
+
+  async function commitRename() {
+    const trimmed = newName.trim()
+    if (trimmed && trimmed !== file.name) {
+      await onRename(file, trimmed)
+    }
+    setRenaming(false)
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Enter') { e.preventDefault(); commitRename() }
+    if (e.key === 'Escape') setRenaming(false)
   }
 
   return (
@@ -28,11 +53,50 @@ export default function FileCard({ file, onDelete }) {
             📄
           </div>
         )}
-        <div className="px-2 py-1.5">
-          <p className="text-xs text-slate-600 truncate" title={file.name}>{file.name}</p>
-        </div>
       </a>
-      {onDelete && (
+
+      <div className="px-2 py-1.5">
+        {renaming ? (
+          <div className="flex flex-col gap-1">
+            <input
+              ref={inputRef}
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="w-full text-xs border border-teal-400 rounded px-1 py-0.5 outline-none"
+            />
+            <div className="flex gap-1">
+              <button
+                onClick={commitRename}
+                className="flex-1 text-xs bg-teal-500 text-white rounded py-0.5 hover:bg-teal-600"
+              >
+                ✓
+              </button>
+              <button
+                onClick={() => setRenaming(false)}
+                className="flex-1 text-xs bg-slate-200 text-slate-600 rounded py-0.5 hover:bg-slate-300"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            <p className="text-xs text-slate-600 truncate flex-1" title={file.name}>{file.name}</p>
+            {onRename && (
+              <button
+                onClick={(e) => { e.preventDefault(); startRename() }}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-teal-600 text-xs flex-shrink-0"
+                title="שנה שם"
+              >
+                ✏
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {!renaming && onDelete && (
         <button
           onClick={(e) => { e.preventDefault(); setConfirmOpen(true) }}
           className="absolute top-1 left-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -41,6 +105,7 @@ export default function FileCard({ file, onDelete }) {
           ✕
         </button>
       )}
+
       <ConfirmDialog
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}

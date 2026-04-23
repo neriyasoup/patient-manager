@@ -8,6 +8,7 @@ export default function FileUploader({ onFiles, multiple = true, accept }) {
   function handleFiles(files) {
     if (!files?.length) return
     onFiles(Array.from(files))
+    if (inputRef.current) inputRef.current.value = ''
   }
 
   return (

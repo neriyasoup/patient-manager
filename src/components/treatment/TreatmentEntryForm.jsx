@@ -16,6 +16,7 @@ export function emptyEntry() {
 
 export default function TreatmentEntryForm({ data, onChange }) {
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState(null)
   const uid = useAuthStore(s => s.user?.uid)
   const patientId = useUIStore(s => s.selectedPatientId)
 
@@ -28,6 +29,7 @@ export default function TreatmentEntryForm({ data, onChange }) {
 
   async function handleFiles(files) {
     setUploading(true)
+    setUploadError(null)
     try {
       const uploaded = []
       for (const file of files) {
@@ -38,6 +40,8 @@ export default function TreatmentEntryForm({ data, onChange }) {
         uploaded.push(meta)
       }
       onChange({ ...data, files: [...(data.files ?? []), ...uploaded] })
+    } catch (err) {
+      setUploadError(err.message ?? 'שגיאה בהעלאת הקובץ')
     } finally {
       setUploading(false)
     }
@@ -59,6 +63,7 @@ export default function TreatmentEntryForm({ data, onChange }) {
         <p className="text-xs font-medium text-slate-600 mb-1.5">צרף קבצים</p>
         <FileUploader onFiles={handleFiles} />
         {uploading && <p className="text-xs text-slate-400 mt-1">מעלה...</p>}
+        {uploadError && <p className="text-xs text-red-500 mt-1">{uploadError}</p>}
         {data.files?.length > 0 && (
           <div className="grid grid-cols-4 gap-2 mt-2">
             {data.files.map(f => (

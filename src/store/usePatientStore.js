@@ -91,6 +91,18 @@ export const usePatientStore = create((set, get) => ({
     })
   },
 
+  async renameGeneralFile(patientId, fileMeta, newName) {
+    const { uid } = get()
+    const patient = get().getById(patientId)
+    const newFiles = (patient?.generalFiles ?? []).map(f =>
+      f.id === fileMeta.id ? { ...f, name: newName } : f
+    )
+    await updateDoc(doc(db, `users/${uid}/patients/${patientId}`), {
+      generalFiles: newFiles,
+      updatedAt: new Date().toISOString(),
+    })
+  },
+
   async updateSearchText(patientId, intake) {
     const { uid } = get()
     const patient = get().getById(patientId)

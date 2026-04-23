@@ -73,4 +73,16 @@ export const useTreatmentStore = create((set, get) => ({
       { files: arrayRemove(fileMeta), updatedAt: new Date().toISOString() },
     )
   },
+
+  async renameFile(treatmentId, fileMeta, newName) {
+    const { uid, patientId } = get()
+    const treatment = get().treatments.find(t => t.id === treatmentId)
+    const newFiles = (treatment?.files ?? []).map(f =>
+      f.id === fileMeta.id ? { ...f, name: newName } : f
+    )
+    await updateDoc(
+      doc(db, `users/${uid}/patients/${patientId}/treatments/${treatmentId}`),
+      { files: newFiles, updatedAt: new Date().toISOString() },
+    )
+  },
 }))

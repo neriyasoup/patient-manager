@@ -11,6 +11,7 @@ export default function TreatmentEntry({ entry }) {
   const [loading, setLoading] = useState(false)
   const deleteTreatment = useTreatmentStore(s => s.deleteTreatment)
   const removeFile = useTreatmentStore(s => s.removeFile)
+  const renameFile = useTreatmentStore(s => s.renameFile)
 
   async function handleDelete() {
     setLoading(true)
@@ -20,6 +21,10 @@ export default function TreatmentEntry({ entry }) {
 
   async function handleDeleteFile(fileMeta) {
     await removeFile(entry.id, fileMeta)
+  }
+
+  async function handleRenameFile(fileMeta, newName) {
+    await renameFile(entry.id, fileMeta, newName)
   }
 
   return (
@@ -44,7 +49,7 @@ export default function TreatmentEntry({ entry }) {
       {entry.files?.length > 0 && (
         <div className="grid grid-cols-4 gap-2">
           {entry.files.map(f => (
-            <FileCard key={f.id} file={f} onDelete={handleDeleteFile} />
+            <FileCard key={f.id} file={f} onDelete={handleDeleteFile} onRename={handleRenameFile} />
           ))}
         </div>
       )}
