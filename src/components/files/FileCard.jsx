@@ -8,6 +8,13 @@ function isImage(name) {
   return IMAGE_EXTS.includes(ext)
 }
 
+function splitName(name) {
+  const lastDot = name.lastIndexOf('.')
+  return lastDot > 0
+    ? { base: name.slice(0, lastDot), ext: name.slice(lastDot) }
+    : { base: name, ext: '' }
+}
+
 export default function FileCard({ file, onDelete, onRename }) {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -26,14 +33,16 @@ export default function FileCard({ file, onDelete, onRename }) {
   }
 
   function startRename() {
-    setNewName(file.name)
+    setNewName(splitName(file.name).base)
     setRenaming(true)
   }
 
   async function commitRename() {
     const trimmed = newName.trim()
-    if (trimmed && trimmed !== file.name) {
-      await onRename(file, trimmed)
+    const { ext } = splitName(file.name)
+    const fullName = trimmed + ext
+    if (trimmed && fullName !== file.name) {
+      await onRename(file, fullName)
     }
     setRenaming(false)
   }
@@ -58,13 +67,18 @@ export default function FileCard({ file, onDelete, onRename }) {
       <div className="px-2 py-1.5">
         {renaming ? (
           <div className="flex flex-col gap-1">
-            <input
-              ref={inputRef}
-              value={newName}
-              onChange={e => setNewName(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="w-full text-xs border border-teal-400 rounded px-1 py-0.5 outline-none"
-            />
+            <div className="flex items-center border border-teal-400 rounded overflow-hidden">
+              <input
+                ref={inputRef}
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="flex-1 min-w-0 text-xs px-1 py-0.5 outline-none"
+              />
+              {splitName(file.name).ext && (
+                <span className="text-xs text-slate-400 pr-1 flex-shrink-0">{splitName(file.name).ext}</span>
+              )}
+            </div>
             <div className="flex gap-1">
               <button
                 onClick={commitRename}
