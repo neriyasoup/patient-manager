@@ -25,9 +25,15 @@ export const useTreatmentStore = create((set, get) => ({
       orderBy('date', 'desc'),
       orderBy('time', 'desc'),
     )
-    const unsub = onSnapshot(q, (snap) => {
-      set({ treatments: snap.docs.map(d => d.data()), loading: false })
-    })
+    const unsub = onSnapshot(q,
+      (snap) => {
+        set({ treatments: snap.docs.map(d => d.data()), loading: false })
+      },
+      (err) => {
+        console.error('treatments listener:', err)
+        set({ loading: false })
+      },
+    )
     set({ uid, patientId, loading: true, _unsubscribe: unsub })
   },
 
