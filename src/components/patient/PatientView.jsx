@@ -7,9 +7,23 @@ import EmptyState from '../ui/EmptyState'
 
 export default function PatientView() {
   const selectedPatientId = useUIStore(s => s.selectedPatientId)
+  const patientsLoading = usePatientStore(s => s.loading)
   const patient = usePatientStore(s => s.patients.find(p => p.id === selectedPatientId) ?? null)
 
-  if (!selectedPatientId || !patient) {
+  if (!selectedPatientId) {
+    return (
+      <EmptyState
+        icon="🌿"
+        title="בחר מטופל"
+        description="בחר מטופל מהרשימה כדי לצפות בתיק"
+      />
+    )
+  }
+
+  if (!patient) {
+    if (patientsLoading) {
+      return <div className="flex items-center justify-center h-full text-sm text-slate-400">טוען...</div>
+    }
     return (
       <EmptyState
         icon="🌿"
