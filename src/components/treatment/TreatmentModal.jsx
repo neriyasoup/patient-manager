@@ -3,6 +3,8 @@ import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import TreatmentEntryForm, { emptyEntry } from './TreatmentEntryForm'
 import { useTreatmentStore } from '../../store/useTreatmentStore'
+import { usePatientStore } from '../../store/usePatientStore'
+import { useUIStore } from '../../store/useUIStore'
 
 export default function TreatmentModal({ open, onClose, existing }) {
   const [data, setData] = useState(emptyEntry())
@@ -10,6 +12,9 @@ export default function TreatmentModal({ open, onClose, existing }) {
   const [error, setError] = useState('')
   const addTreatment = useTreatmentStore(s => s.addTreatment)
   const updateTreatment = useTreatmentStore(s => s.updateTreatment)
+  const selectedPatientId = useUIStore(s => s.selectedPatientId)
+  const patient = usePatientStore(s => s.patients.find(p => p.id === selectedPatientId) ?? null)
+  const patientName = patient ? `${patient.firstName} ${patient.lastName}` : ''
 
   useEffect(() => {
     if (open) setData(existing ? { ...existing } : emptyEntry())
@@ -38,7 +43,7 @@ export default function TreatmentModal({ open, onClose, existing }) {
     <Modal
       open={open}
       onClose={onClose}
-      title={existing ? 'עריכת טיפול' : 'הוספת טיפול'}
+      title={`${existing ? 'עריכת טיפול' : 'הוספת טיפול'}${patientName ? ` — ${patientName}` : ''}`}
       maxWidth="max-w-lg"
     >
       <TreatmentEntryForm data={data} onChange={setData} />
