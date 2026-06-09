@@ -3,6 +3,7 @@ import { useAuthStore } from '../../store/useAuthStore'
 import { useUIStore } from '../../store/useUIStore'
 import GlobalSearchResults from '../search/GlobalSearchResults'
 import Button from '../ui/Button'
+import NewPatientModal from '../patient/NewPatientModal'
 
 export default function TopBar() {
   const logout = useAuthStore(s => s.logout)
@@ -11,6 +12,7 @@ export default function TopBar() {
   const setGlobalQuery = useUIStore(s => s.setGlobalQuery)
   const selectPatient = useUIStore(s => s.selectPatient)
   const [focused, setFocused] = useState(false)
+  const [showNew, setShowNew] = useState(false)
   const inputRef = useRef(null)
 
   function handleSelect(id) {
@@ -22,6 +24,14 @@ export default function TopBar() {
   return (
     <div className="h-14 bg-teal-700 text-white flex items-center gap-4 px-4 shrink-0 relative z-40">
       <span className="font-bold text-lg whitespace-nowrap">🌿 מרפאת דיקור</span>
+
+      <Button
+        onClick={() => setShowNew(true)}
+        size="sm"
+        className="bg-white/10 hover:bg-white/20 text-white border border-white/20"
+      >
+        + מטופל חדש
+      </Button>
 
       <div className="flex-1 relative max-w-md mx-auto">
         <input
@@ -42,6 +52,8 @@ export default function TopBar() {
           התנתק
         </Button>
       </div>
+
+      <NewPatientModal open={showNew} onClose={() => setShowNew(false)} />
     </div>
   )
 }

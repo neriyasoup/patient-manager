@@ -1,5 +1,4 @@
 import TopBar from './TopBar'
-import PatientList from '../patient/PatientList'
 import IntakePanel from '../intake/IntakePanel'
 import PatientView from '../patient/PatientView'
 import { useUIStore } from '../../store/useUIStore'
@@ -12,11 +11,6 @@ export default function AppShell() {
     <div className="flex flex-col h-screen overflow-hidden">
       <TopBar />
       <div className="flex flex-1 overflow-hidden">
-        {/* Right column: patient list (RTL → displayed on right) */}
-        <div className="w-64 shrink-0 border-r border-slate-200 bg-white flex flex-col overflow-hidden">
-          <PatientList />
-        </div>
-
         {/* Middle column: intake questionnaire */}
         {selectedPatientId && (
           <div
