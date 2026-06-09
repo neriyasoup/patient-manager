@@ -64,19 +64,19 @@ export default function PatientView() {
   const firstTreatment = hasFirstTreatment ? treatments[treatments.length - 1] : null
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <PatientHeader patient={patient} />
-      <div className="flex flex-1 overflow-hidden">
-        {/* Right column: First Treatment (Intake/Initial) */}
-        {hasFirstTreatment && firstTreatment && (
-          <div className="w-80 shrink-0 border-l border-slate-200 bg-slate-50/50 p-6 overflow-y-auto flex flex-col gap-4">
-            <h3 className="font-bold text-slate-700 text-sm">טיפול 1 (אבחון ראשוני)</h3>
-            <TreatmentEntry entry={firstTreatment} index={1} />
-          </div>
-        )}
+    <div className="flex flex-row h-full overflow-hidden">
+      {/* Right column: First Treatment (Intake/Initial) */}
+      {hasFirstTreatment && firstTreatment && (
+        <div className="w-80 shrink-0 border-l border-slate-200 bg-slate-50/50 p-6 overflow-y-auto flex flex-col gap-4">
+          <h3 className="font-bold text-slate-700 text-sm">טיפול 1 (אבחון ראשוני)</h3>
+          <TreatmentEntry entry={firstTreatment} index={1} />
+        </div>
+      )}
 
-        {/* Main content column: Subsequent treatments & files */}
-        <div className="flex-1 p-6 overflow-y-auto flex flex-col gap-8">
+      {/* Left Column: Patient details & log */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        <PatientHeader patient={patient} />
+        <div className="flex-1 p-6 overflow-y-auto flex flex-col gap-8 bg-white">
           <TreatmentLog patientId={patient.id} hideFirst={hasFirstTreatment} />
           <GeneralFiles patient={patient} />
         </div>
