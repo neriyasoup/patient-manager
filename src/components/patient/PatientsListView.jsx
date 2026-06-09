@@ -9,11 +9,14 @@ import Button from '../ui/Button'
 import EmptyState from '../ui/EmptyState'
 import NewPatientModal from './NewPatientModal'
 import ConfirmDialog from '../ui/ConfirmDialog'
+import Modal from '../ui/Modal'
+import PatientForm from './PatientForm'
 
 export default function PatientsListView() {
   const patients = usePatientStore(s => s.patients)
   const loading = usePatientStore(s => s.loading)
   const deletePatient = usePatientStore(s => s.deletePatient)
+  const updatePatient = usePatientStore(s => s.updatePatient)
   const selectPatient = useUIStore(s => s.selectPatient)
   const navigate = useNavigate()
 
@@ -24,6 +27,10 @@ export default function PatientsListView() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
+
+  const [editOpen, setEditOpen] = useState(false)
+  const [editTarget, setEditTarget] = useState(null)
+  const [updating, setUpdating] = useState(false)
 
   const filtered = patients.filter(p => {
     const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase()
@@ -53,6 +60,20 @@ export default function PatientsListView() {
       console.error('Error deleting patient:', err)
     } finally {
       setDeleting(false)
+    }
+  }
+
+  async function handleSaveEdit() {
+    if (!editTarget.firstName?.trim() || !editTarget.lastName?.trim()) return
+    setUpdating(true)
+    try {
+      await updatePatient(editTarget.id, editTarget)
+      setEditOpen(false)
+      setEditTarget(null)
+    } catch (err) {
+      console.error('Error updating patient:', err)
+    } finally {
+      setUpdating(false)
     }
   }
 
@@ -194,6 +215,18 @@ export default function PatientsListView() {
                   </Button>
                   <Button
                     onClick={() => {
+                      setEditTarget({ ...p })
+                      setEditOpen(true)
+                    }}
+                    variant="secondary"
+                    size="sm"
+                    className="px-2.5 text-xs font-semibold"
+                    title="ערוך מטופל"
+                  >
+                    ✏️
+                  </Button>
+                  <Button
+                    onClick={() => {
                       setDeleteTarget(p)
                       setDeleteOpen(true)
                     }}
@@ -223,6 +256,13 @@ export default function PatientsListView() {
         message={`האם למחוק את ${deleteTarget?.firstName} ${deleteTarget?.lastName}? הפעולה בלתי הפיכה.`}
         loading={deleting}
       />
+      <Modal open={editOpen} onClose={() => { setEditOpen(false); setEditTarget(null); }} title="עריכת פרטי מטופל" maxWidth="max-w-md">
+        {editTarget && <PatientForm data={editTarget} onChange={setEditTarget} />}
+        <div className="flex gap-2 justify-end pt-2">
+          <Button variant="secondary" onClick={() => { setEditOpen(false); setEditTarget(null); }} disabled={updating}>ביטול</Button>
+          <Button onClick={handleSaveEdit} disabled={updating}>{updating ? 'שומר...' : 'שמור'}</Button>
+        </div>
+      </Modal>
     </div>
   )
 }
