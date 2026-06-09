@@ -7,6 +7,7 @@ import { useIntakeStore } from './store/useIntakeStore'
 import { useUIStore } from './store/useUIStore'
 import LoginPage from './pages/LoginPage'
 import ClinicPage from './pages/ClinicPage'
+import PatientsPage from './pages/PatientsPage'
 
 function AuthWatcher() {
   const user = useAuthStore(s => s.user)
@@ -51,6 +52,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
         <Route path="/" element={user ? <ClinicPage /> : <Navigate to="/login" replace />} />
+        <Route path="/patients" element={user ? <PatientsPage /> : <Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </HashRouter>

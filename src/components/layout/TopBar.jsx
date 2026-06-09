@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/useAuthStore'
 import { useUIStore } from '../../store/useUIStore'
 import GlobalSearchResults from '../search/GlobalSearchResults'
@@ -14,16 +15,32 @@ export default function TopBar() {
   const [focused, setFocused] = useState(false)
   const [showNew, setShowNew] = useState(false)
   const inputRef = useRef(null)
+  const navigate = useNavigate()
 
   function handleSelect(id) {
     selectPatient(id)
     setGlobalQuery('')
     inputRef.current?.blur()
+    navigate('/')
   }
 
   return (
     <div className="h-14 bg-teal-700 text-white flex items-center gap-4 px-4 shrink-0 relative z-40">
-      <span className="font-bold text-lg whitespace-nowrap">🌿 מרפאת דיקור</span>
+      <button
+        onClick={() => navigate('/')}
+        className="font-bold text-lg whitespace-nowrap hover:opacity-85 transition-opacity focus:outline-none cursor-pointer"
+      >
+        🌿 מרפאת דיקור
+      </button>
+
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate('/patients')}
+        className="text-white hover:bg-white/10"
+      >
+        👥 מטופלים
+      </Button>
 
       <Button
         onClick={() => setShowNew(true)}
