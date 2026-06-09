@@ -6,7 +6,7 @@ import { useTreatmentStore } from '../../store/useTreatmentStore'
 import { usePatientStore } from '../../store/usePatientStore'
 import { useUIStore } from '../../store/useUIStore'
 
-export default function TreatmentModal({ open, onClose, existing }) {
+export default function TreatmentModal({ open, onClose, existing, treatmentNumber, nextTreatmentNumber }) {
   const [data, setData] = useState(emptyEntry())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -39,11 +39,15 @@ export default function TreatmentModal({ open, onClose, existing }) {
     }
   }
 
+  const modalTitle = existing
+    ? `עריכת טיפול (טיפול ${treatmentNumber})`
+    : `הוספת טיפול (טיפול ${nextTreatmentNumber})`
+
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title={`${existing ? 'עריכת טיפול' : 'הוספת טיפול'}${patientName ? ` — ${patientName}` : ''}`}
+      title={`${modalTitle}${patientName ? ` — ${patientName}` : ''}`}
       maxWidth="max-w-lg"
     >
       <TreatmentEntryForm data={data} onChange={setData} />

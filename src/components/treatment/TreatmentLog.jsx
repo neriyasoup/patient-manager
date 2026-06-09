@@ -24,10 +24,12 @@ export default function TreatmentLog() {
       )}
 
       <div className="flex flex-col gap-3">
-        {treatments.map(t => <TreatmentEntry key={t.id} entry={t} />)}
+        {treatments.map((t, i) => (
+          <TreatmentEntry key={t.id} entry={t} index={treatments.length - i} />
+        ))}
       </div>
 
-      <TreatmentModal open={addOpen} onClose={() => setAddOpen(false)} />
+      <TreatmentModal open={addOpen} onClose={() => setAddOpen(false)} nextTreatmentNumber={treatments.length + 1} />
     </div>
   )
 }

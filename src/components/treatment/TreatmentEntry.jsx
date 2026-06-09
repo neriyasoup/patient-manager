@@ -5,7 +5,7 @@ import ConfirmDialog from '../ui/ConfirmDialog'
 import TreatmentModal from './TreatmentModal'
 import { useTreatmentStore } from '../../store/useTreatmentStore'
 
-export default function TreatmentEntry({ entry }) {
+export default function TreatmentEntry({ entry, index }) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -31,7 +31,9 @@ export default function TreatmentEntry({ entry }) {
     <div className="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-3 shadow-sm">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-slate-800 text-sm">{entry.date}</span>
+          <span className="font-bold text-teal-700 text-sm">טיפול {index}</span>
+          <span className="text-slate-300 text-xs">|</span>
+          <span className="font-semibold text-slate-600 text-sm">{entry.date}</span>
           {entry.time && <span className="text-slate-500 text-xs">{entry.time}</span>}
         </div>
         <div className="flex gap-1">
@@ -54,7 +56,7 @@ export default function TreatmentEntry({ entry }) {
         </div>
       )}
 
-      <TreatmentModal open={editOpen} onClose={() => setEditOpen(false)} existing={entry} />
+      <TreatmentModal open={editOpen} onClose={() => setEditOpen(false)} existing={entry} treatmentNumber={index} />
       <ConfirmDialog
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
