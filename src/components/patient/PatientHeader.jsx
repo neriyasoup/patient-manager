@@ -105,7 +105,7 @@ export default function PatientHeader({ patient }) {
           onBlur={handleSaveNotes}
           placeholder="רשום כאן הערות קבועות על המטופל (אלרגיות, אבחנה ראשונית, אזהרות...)"
           rows={2}
-          className="w-full text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2 focus:outline-none focus:border-teal-500 focus:bg-white resize-y"
+          className="w-full text-xs text-amber-900 bg-yellow-50 border border-yellow-200 rounded-lg p-2 focus:outline-none focus:bg-yellow-100/50 focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 resize-y placeholder:text-yellow-700/50"
         />
       </div>
 
