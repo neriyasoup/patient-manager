@@ -7,7 +7,7 @@ export default function AppShell() {
       <TopBar />
       <div className="flex flex-1 overflow-hidden">
         {/* Main content */}
-        <div className="flex-1 overflow-y-auto bg-white">
+        <div className="flex-1 bg-white flex flex-col overflow-hidden">
           <PatientView />
         </div>
       </div>
