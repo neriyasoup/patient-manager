@@ -1,19 +1,11 @@
-export function buildSearchText(patient, intake = {}) {
+export function buildSearchText(patient) {
+  if (!patient) return ''
   return [
     patient.firstName,
     patient.lastName,
     patient.email,
     patient.phone,
     patient.address,
-    intake.chiefComplaint,
-    intake.complaintHistory,
-    intake.currentMedications,
-    intake.supplements,
-    intake.allergies,
-    intake.medicalConditions,
-    intake.tcmDiagnosis,
-    intake.zangFuPattern,
-    intake.treatmentGoals,
   ].filter(Boolean).join(' ').toLowerCase()
 }
 

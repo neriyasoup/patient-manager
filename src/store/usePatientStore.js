@@ -45,7 +45,7 @@ export const usePatientStore = create((set, get) => ({
       id,
       deleted: false,
       generalFiles: [],
-      searchText: buildSearchText({ ...data, id }, {}),
+      searchText: buildSearchText({ ...data, id }),
       createdAt: now,
       updatedAt: now,
     }
@@ -57,7 +57,7 @@ export const usePatientStore = create((set, get) => ({
     const { uid } = get()
     const existing = get().getById(id) ?? {}
     const updated = { ...existing, ...patch, updatedAt: new Date().toISOString() }
-    updated.searchText = buildSearchText(updated, {})
+    updated.searchText = buildSearchText(updated)
     await updateDoc(doc(db, `users/${uid}/patients/${id}`), {
       ...patch,
       searchText: updated.searchText,
@@ -101,13 +101,5 @@ export const usePatientStore = create((set, get) => ({
       generalFiles: newFiles,
       updatedAt: new Date().toISOString(),
     })
-  },
-
-  async updateSearchText(patientId, intake) {
-    const { uid } = get()
-    const patient = get().getById(patientId)
-    if (!patient) return
-    const searchText = buildSearchText(patient, intake)
-    await updateDoc(doc(db, `users/${uid}/patients/${patientId}`), { searchText })
   },
 }))

@@ -3,7 +3,6 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/useAuthStore'
 import { usePatientStore } from './store/usePatientStore'
 import { useTreatmentStore } from './store/useTreatmentStore'
-import { useIntakeStore } from './store/useIntakeStore'
 import { useUIStore } from './store/useUIStore'
 import LoginPage from './pages/LoginPage'
 import ClinicPage from './pages/ClinicPage'
@@ -25,7 +24,6 @@ function AuthWatcher() {
   useEffect(() => {
     if (!uid) return
     useTreatmentStore.getState().init(uid, selectedPatientId)
-    useIntakeStore.getState().init(uid, selectedPatientId)
   }, [uid, selectedPatientId])
 
   return null
