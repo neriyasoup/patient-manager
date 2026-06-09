@@ -69,7 +69,7 @@ export default function PatientView() {
       {hasFirstTreatment && firstTreatment && (
         <div className="w-80 shrink-0 border-l border-slate-200 bg-slate-50/50 p-6 overflow-y-auto flex flex-col gap-4">
           <h3 className="font-bold text-slate-700 text-sm">טיפול 1 (אבחון ראשוני)</h3>
-          <TreatmentEntry entry={firstTreatment} index={1} />
+          <TreatmentEntry entry={firstTreatment} index={1} compact={true} />
         </div>
       )}
 

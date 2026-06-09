@@ -15,7 +15,7 @@ function formatDate(dateStr) {
   return dateStr
 }
 
-export default function TreatmentEntry({ entry, index }) {
+export default function TreatmentEntry({ entry, index, compact = false }) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -39,14 +39,14 @@ export default function TreatmentEntry({ entry, index }) {
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-3 shadow-sm">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
+      <div className={compact ? 'flex flex-col gap-2' : 'flex items-start justify-between gap-2'}>
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="font-bold text-teal-700 text-sm">טיפול {index}</span>
           <span className="text-slate-300 text-xs">|</span>
           <span className="font-semibold text-slate-600 text-sm">{formatDate(entry.date)}</span>
           {entry.time && <span className="text-slate-500 text-xs">{entry.time}</span>}
         </div>
-        <div className="flex gap-1">
+        <div className={`flex gap-1 ${compact ? 'border-t border-slate-100 pt-2 w-full justify-start' : ''}`}>
           <Button variant="ghost" size="xs" onClick={() => setEditOpen(true)}>עריכה</Button>
           <Button variant="ghost" size="xs" onClick={() => setDeleteOpen(true)} className="text-red-500 hover:bg-red-50">
             מחק
