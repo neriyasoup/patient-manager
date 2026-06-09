@@ -8,16 +8,22 @@ import PatientStatusBadge from './PatientStatusBadge'
 import Button from '../ui/Button'
 import EmptyState from '../ui/EmptyState'
 import NewPatientModal from './NewPatientModal'
+import ConfirmDialog from '../ui/ConfirmDialog'
 
 export default function PatientsListView() {
   const patients = usePatientStore(s => s.patients)
   const loading = usePatientStore(s => s.loading)
+  const deletePatient = usePatientStore(s => s.deletePatient)
   const selectPatient = useUIStore(s => s.selectPatient)
   const navigate = useNavigate()
 
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [showNew, setShowNew] = useState(false)
+
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   const filtered = patients.filter(p => {
     const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase()
@@ -34,6 +40,20 @@ export default function PatientsListView() {
   function handleSelect(id) {
     selectPatient(id)
     navigate('/')
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deletePatient(deleteTarget.id)
+      setDeleteOpen(false)
+      setDeleteTarget(null)
+    } catch (err) {
+      console.error('Error deleting patient:', err)
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (
@@ -163,14 +183,26 @@ export default function PatientsListView() {
                   )}
                 </div>
 
-                <div className="pt-2 mt-auto">
+                <div className="pt-2 mt-auto flex gap-2">
                   <Button
                     onClick={() => handleSelect(p.id)}
                     variant="secondary"
                     size="sm"
-                    className="w-full text-xs font-semibold"
+                    className="flex-1 text-xs font-semibold"
                   >
-                    📂 כניסה לתיק מטופל
+                    📂 כניסה לתיק
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setDeleteTarget(p)
+                      setDeleteOpen(true)
+                    }}
+                    variant="danger"
+                    size="sm"
+                    className="px-2.5 text-xs font-semibold"
+                    title="מחק מטופל"
+                  >
+                    🗑️
                   </Button>
                 </div>
               </div>
@@ -180,6 +212,17 @@ export default function PatientsListView() {
       )}
 
       <NewPatientModal open={showNew} onClose={() => setShowNew(false)} />
+      <ConfirmDialog
+        open={deleteOpen}
+        onClose={() => {
+          setDeleteOpen(false)
+          setDeleteTarget(null)
+        }}
+        onConfirm={handleDelete}
+        title="מחיקת מטופל"
+        message={`האם למחוק את ${deleteTarget?.firstName} ${deleteTarget?.lastName}? הפעולה בלתי הפיכה.`}
+        loading={deleting}
+      />
     </div>
   )
 }
