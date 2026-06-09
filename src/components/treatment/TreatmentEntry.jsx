@@ -5,6 +5,16 @@ import ConfirmDialog from '../ui/ConfirmDialog'
 import TreatmentModal from './TreatmentModal'
 import { useTreatmentStore } from '../../store/useTreatmentStore'
 
+function formatDate(dateStr) {
+  if (!dateStr) return ''
+  const parts = dateStr.split(/[-/]/)
+  if (parts.length === 3 && parts[0].length === 4) {
+    const [year, month, day] = parts
+    return `${day}/${month}/${year}`
+  }
+  return dateStr
+}
+
 export default function TreatmentEntry({ entry, index }) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -33,7 +43,7 @@ export default function TreatmentEntry({ entry, index }) {
         <div className="flex items-center gap-2">
           <span className="font-bold text-teal-700 text-sm">טיפול {index}</span>
           <span className="text-slate-300 text-xs">|</span>
-          <span className="font-semibold text-slate-600 text-sm">{entry.date}</span>
+          <span className="font-semibold text-slate-600 text-sm">{formatDate(entry.date)}</span>
           {entry.time && <span className="text-slate-500 text-xs">{entry.time}</span>}
         </div>
         <div className="flex gap-1">
