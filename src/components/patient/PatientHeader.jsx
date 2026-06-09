@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { calcAge } from '../../utils/age'
 import PatientStatusBadge from './PatientStatusBadge'
 import Modal from '../ui/Modal'
@@ -16,6 +16,25 @@ export default function PatientHeader({ patient }) {
   const updatePatient = usePatientStore(s => s.updatePatient)
   const deletePatient = usePatientStore(s => s.deletePatient)
   const selectPatient = useUIStore(s => s.selectPatient)
+
+  const [localNotes, setLocalNotes] = useState(patient.permanentNotes ?? '')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setLocalNotes(patient.permanentNotes ?? '')
+  }, [patient.id, patient.permanentNotes])
+
+  async function handleSaveNotes() {
+    if (localNotes === (patient.permanentNotes ?? '')) return
+    setSaving(true)
+    try {
+      await updatePatient(patient.id, { permanentNotes: localNotes })
+    } catch (err) {
+      console.error('Error saving permanent notes:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   function openEdit() {
     setEditData({ ...patient })
@@ -73,6 +92,21 @@ export default function PatientHeader({ patient }) {
             מחק
           </Button>
         </div>
+      </div>
+
+      <div className="mt-3 border-t border-slate-100 pt-3">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs font-semibold text-slate-500">הערות קבועות</span>
+          {saving && <span className="text-[10px] text-teal-600 animate-pulse">שומר...</span>}
+        </div>
+        <textarea
+          value={localNotes}
+          onChange={e => setLocalNotes(e.target.value)}
+          onBlur={handleSaveNotes}
+          placeholder="רשום כאן הערות קבועות על המטופל (אלרגיות, אבחנה ראשונית, אזהרות...)"
+          rows={2}
+          className="w-full text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2 focus:outline-none focus:border-teal-500 focus:bg-white resize-y"
+        />
       </div>
 
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title="עריכת פרטי מטופל" maxWidth="max-w-md">

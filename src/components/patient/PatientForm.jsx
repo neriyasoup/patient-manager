@@ -1,5 +1,6 @@
 import Input from '../ui/Input'
 import Select from '../ui/Select'
+import Textarea from '../ui/Textarea'
 import { PATIENT_STATUSES } from '../../constants'
 
 const statusOptions = [
@@ -30,6 +31,9 @@ export default function PatientForm({ data, onChange }) {
         value={data.status ?? 'active'}
         onChange={e => onChange({ ...data, status: e.target.value })}
       />
+      <div className="col-span-2">
+        <Textarea label="הערות קבועות" rows={3} placeholder="הערות מיוחדות, אלרגיות, רקע בריאותי..." {...field('permanentNotes')} />
+      </div>
     </div>
   )
 }
