@@ -17,6 +17,7 @@ export default function TreatmentModal({ open, onClose, existing, treatmentNumbe
   const patientName = patient ? `${patient.firstName} ${patient.lastName}` : ''
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (open) setData(existing ? { ...existing } : emptyEntry())
     setError('')
   }, [open, existing])

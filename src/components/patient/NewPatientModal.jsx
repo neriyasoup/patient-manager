@@ -1,18 +1,25 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Modal from '../ui/Modal'
 import PatientForm from './PatientForm'
 import Button from '../ui/Button'
 import { usePatientStore } from '../../store/usePatientStore'
 import { useUIStore } from '../../store/useUIStore'
 
-const EMPTY = { firstName: '', lastName: '', phone: '', email: '', address: '', dob: '', status: 'active' }
+const EMPTY = { firstName: '', lastName: '', phone: '', email: '', address: '', dob: '', status: 'active', balance: '' }
 
-export default function NewPatientModal({ open, onClose }) {
-  const [data, setData] = useState(EMPTY)
+export default function NewPatientModal({ open, onClose, initialData }) {
+  const [data, setData] = useState(() => ({ ...EMPTY, ...initialData }))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const addPatient = usePatientStore(s => s.addPatient)
   const selectPatient = useUIStore(s => s.selectPatient)
+
+  useEffect(() => {
+    if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setData({ ...EMPTY, ...initialData })
+    }
+  }, [open, initialData])
 
   async function handleSave() {
     if (!data.firstName.trim() || !data.lastName.trim()) {

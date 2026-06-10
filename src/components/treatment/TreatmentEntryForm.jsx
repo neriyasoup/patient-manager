@@ -10,6 +10,7 @@ import { useUIStore } from '../../store/useUIStore'
 function todayStr() { return new Date().toISOString().slice(0, 10) }
 function nowStr() { return new Date().toTimeString().slice(0, 5) }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function emptyEntry() {
   return { date: todayStr(), time: nowStr(), notes: '', files: [] }
 }

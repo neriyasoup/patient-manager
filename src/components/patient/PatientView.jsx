@@ -9,14 +9,13 @@ import GeneralFiles from '../files/GeneralFiles'
 import EmptyState from '../ui/EmptyState'
 import Button from '../ui/Button'
 import NewPatientModal from './NewPatientModal'
+import CalendarDashboard from '../calendar/CalendarDashboard'
 
 export default function PatientView() {
   const selectedPatientId = useUIStore(s => s.selectedPatientId)
   const patientsLoading = usePatientStore(s => s.loading)
   const patient = usePatientStore(s => s.patients.find(p => p.id === selectedPatientId) ?? null)
   const treatments = useTreatmentStore(s => s.treatments)
-  const [showNew, setShowNew] = useState(false)
-
   const [sidebarWidth, setSidebarWidth] = useState(320)
   const [isResizing, setIsResizing] = useState(false)
 
@@ -53,46 +52,14 @@ export default function PatientView() {
   }, [isResizing])
 
   if (!selectedPatientId) {
-    return (
-      <>
-        <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
-          <EmptyState
-            icon="🌿"
-            title="אין מטופל בחור"
-            description="חפש מטופל בשורת החיפוש למעלה או צור מטופל חדש כדי להתחיל"
-            action={
-              <Button onClick={() => setShowNew(true)} variant="primary">
-                + מטופל חדש
-              </Button>
-            }
-          />
-        </div>
-        <NewPatientModal open={showNew} onClose={() => setShowNew(false)} />
-      </>
-    )
+    return <CalendarDashboard />
   }
 
   if (!patient) {
     if (patientsLoading) {
-      return <div className="flex items-center justify-center h-full text-sm text-slate-400">טוען...</div>
+      return <div className="flex items-center justify-center h-[calc(100vh-3.5rem)] text-sm text-slate-400">טוען...</div>
     }
-    return (
-      <>
-        <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
-          <EmptyState
-            icon="🌿"
-            title="אין מטופל בחור"
-            description="חפש מטופל בשורת החיפוש למעלה או צור מטופל חדש כדי להתחיל"
-            action={
-              <Button onClick={() => setShowNew(true)} variant="primary">
-                + מטופל חדש
-              </Button>
-            }
-          />
-        </div>
-        <NewPatientModal open={showNew} onClose={() => setShowNew(false)} />
-      </>
-    )
+    return <CalendarDashboard />
   }
 
   const hasFirstTreatment = treatments.length > 0

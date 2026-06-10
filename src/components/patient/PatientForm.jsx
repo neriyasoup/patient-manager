@@ -25,12 +25,15 @@ export default function PatientForm({ data, onChange }) {
         <Input label="כתובת" {...field('address')} />
       </div>
       <Input label="תאריך לידה" type="date" {...field('dob')} />
-      <Select
-        label="סטטוס"
-        options={statusOptions}
-        value={data.status ?? 'active'}
-        onChange={e => onChange({ ...data, status: e.target.value })}
-      />
+      <Input label="יתרת חוב (₪)" type="number" {...field('balance')} />
+      <div className="col-span-2">
+        <Select
+          label="סטטוס"
+          options={statusOptions}
+          value={data.status ?? 'active'}
+          onChange={e => onChange({ ...data, status: e.target.value })}
+        />
+      </div>
       <div className="col-span-2">
         <Textarea label="הערות קבועות" rows={3} placeholder="הערות מיוחדות, אלרגיות, רקע בריאותי..." {...field('permanentNotes')} />
       </div>

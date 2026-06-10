@@ -31,6 +31,7 @@ export default function PatientHeader({ patient }) {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocalNotes(patient.permanentNotes ?? '')
   }, [patient.id, patient.permanentNotes])
 
@@ -94,6 +95,11 @@ export default function PatientHeader({ patient }) {
             {patient.phone && <span>📞 {patient.phone}</span>}
             {patient.email && <span>✉️ {patient.email}</span>}
             {patient.address && <span>📍 {patient.address}</span>}
+            {patient.balance && Number(patient.balance) > 0 && (
+              <span className="text-red-600 font-semibold">
+                💰 יתרת חוב: {patient.balance} ₪
+              </span>
+            )}
           </div>
         </div>
         <div className="flex gap-1.5 shrink-0">

@@ -27,7 +27,10 @@ export default function TopBar() {
   return (
     <div className="h-14 bg-teal-700 text-white flex items-center gap-4 px-4 shrink-0 relative z-40">
       <button
-        onClick={() => navigate('/')}
+        onClick={() => {
+          selectPatient(null)
+          navigate('/')
+        }}
         className="font-bold text-lg whitespace-nowrap hover:opacity-85 transition-opacity focus:outline-none cursor-pointer"
       >
         🌿 מרפאת דיקור
