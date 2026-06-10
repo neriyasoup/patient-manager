@@ -40,10 +40,20 @@ export const useCalendarStore = create((set, get) => ({
       })
 
       if (!response.ok) {
+        let errorMsg = response.statusText
+        try {
+          const errData = await response.json()
+          if (errData?.error?.message) {
+            errorMsg = errData.error.message
+          }
+        } catch {
+          // Ignore JSON parsing errors
+        }
+
         if (response.status === 401) {
           throw new Error('UNAUTHORIZED')
         }
-        throw new Error(`Google API error: ${response.statusText}`)
+        throw new Error(`Google API error: ${errorMsg}`)
       }
 
       const data = await response.json()
