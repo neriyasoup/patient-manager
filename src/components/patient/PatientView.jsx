@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { usePatientStore } from '../../store/usePatientStore'
 import { useTreatmentStore } from '../../store/useTreatmentStore'
 import { useUIStore } from '../../store/useUIStore'
@@ -16,6 +16,41 @@ export default function PatientView() {
   const patient = usePatientStore(s => s.patients.find(p => p.id === selectedPatientId) ?? null)
   const treatments = useTreatmentStore(s => s.treatments)
   const [showNew, setShowNew] = useState(false)
+
+  const [sidebarWidth, setSidebarWidth] = useState(320)
+  const [isResizing, setIsResizing] = useState(false)
+
+  const startResizing = (e) => {
+    e.preventDefault()
+    setIsResizing(true)
+  }
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isResizing) return
+      // In RTL, dragging left (decreasing clientX) increases sidebar width
+      const newWidth = window.innerWidth - e.clientX
+      const minWidth = 220
+      const maxWidth = Math.min(600, window.innerWidth * 0.5)
+      if (newWidth >= minWidth && newWidth <= maxWidth) {
+        setSidebarWidth(newWidth)
+      }
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+    }
+
+    if (isResizing) {
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseup', handleMouseUp)
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizing])
 
   if (!selectedPatientId) {
     return (
@@ -67,7 +102,19 @@ export default function PatientView() {
     <div className="flex flex-row h-full overflow-hidden">
       {/* Right column: First Treatment (Intake/Initial) */}
       {hasFirstTreatment && firstTreatment && (
-        <div className="w-80 shrink-0 border-l border-slate-200 bg-slate-50/50 p-6 overflow-y-auto flex flex-col gap-4">
+        <div
+          style={{ width: `${sidebarWidth}px` }}
+          className={`shrink-0 border-l border-slate-200 bg-slate-50/50 p-6 overflow-y-auto flex flex-col gap-4 relative ${
+            isResizing ? 'select-none' : ''
+          }`}
+        >
+          {/* Resize handle draggable area */}
+          <div
+            onMouseDown={startResizing}
+            className={`absolute top-0 bottom-0 left-0 w-1.5 cursor-col-resize select-none transition-colors z-30 ${
+              isResizing ? 'bg-teal-500' : 'bg-transparent hover:bg-slate-300'
+            }`}
+          />
           <h3 className="font-bold text-slate-700 text-sm">טיפול 1 (אבחון ראשוני)</h3>
           <TreatmentEntry entry={firstTreatment} index={1} compact={true} />
         </div>
