@@ -8,6 +8,16 @@ import ConfirmDialog from '../ui/ConfirmDialog'
 import { usePatientStore } from '../../store/usePatientStore'
 import { useUIStore } from '../../store/useUIStore'
 
+function formatDate(dateStr) {
+  if (!dateStr) return ''
+  const parts = dateStr.split(/[-/]/)
+  if (parts.length === 3 && parts[0].length === 4) {
+    const [year, month, day] = parts
+    return `${day}/${month}/${year}`
+  }
+  return dateStr
+}
+
 export default function PatientHeader({ patient }) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -78,7 +88,7 @@ export default function PatientHeader({ patient }) {
           <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-slate-500">
             {patient.dob && (
               <span>
-                ת.לידה: {patient.dob}{age !== null && ` (גיל ${age})`}
+                ת.לידה: {formatDate(patient.dob)}{age !== null && ` (גיל ${age})`}
               </span>
             )}
             {patient.phone && <span>📞 {patient.phone}</span>}
