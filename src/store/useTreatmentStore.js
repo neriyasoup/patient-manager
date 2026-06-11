@@ -12,10 +12,16 @@ export const useTreatmentStore = create((set, get) => ({
   loading: true,
   uid: null,
   patientId: null,
+  allTreatments: [],
+  allTreatmentsLoading: false,
+  allTreatmentsLoaded: false,
   _unsubscribe: null,
 
   init(uid, patientId) {
     get()._unsubscribe?.()
+    if (get().uid !== uid) {
+      set({ allTreatments: [], allTreatmentsLoaded: false, allTreatmentsLoading: false })
+    }
     if (!patientId) {
       set({ treatments: [], loading: false, uid, patientId: null, _unsubscribe: null })
       return
@@ -37,12 +43,36 @@ export const useTreatmentStore = create((set, get) => ({
     set({ uid, patientId, loading: true, _unsubscribe: unsub })
   },
 
+  async loadAllTreatments() {
+    const { uid, allTreatmentsLoaded, allTreatmentsLoading } = get()
+    if (!uid || allTreatmentsLoaded || allTreatmentsLoading) return
+    set({ allTreatmentsLoading: true })
+    try {
+      const { collectionGroup, getDocs } = await import('firebase/firestore')
+      const snap = await getDocs(collectionGroup(db, 'treatments'))
+      const filtered = snap.docs
+        .map(d => ({ ...d.data(), _path: d.ref.path }))
+        .filter(t => t._path.startsWith(`users/${uid}/patients/`))
+      set({ allTreatments: filtered, allTreatmentsLoaded: true, allTreatmentsLoading: false })
+    } catch (err) {
+      console.error('Failed to load all treatments for search:', err)
+      set({ allTreatmentsLoading: false })
+    }
+  },
+
   async addTreatment(data) {
     const { uid, patientId } = get()
     const id = uuidv4()
     const now = new Date().toISOString()
-    const entry = { ...data, id, files: data.files ?? [], createdAt: now, updatedAt: now }
+    const entry = { ...data, id, patientId, files: data.files ?? [], createdAt: now, updatedAt: now }
     await setDoc(doc(db, `users/${uid}/patients/${patientId}/treatments/${id}`), entry)
+
+    // Add to allTreatments cache
+    const entryWithPath = { ...entry, _path: `users/${uid}/patients/${patientId}/treatments/${id}` }
+    set(s => ({
+      allTreatments: [...s.allTreatments, entryWithPath]
+    }))
+
     return id
   },
 
@@ -52,6 +82,11 @@ export const useTreatmentStore = create((set, get) => ({
       doc(db, `users/${uid}/patients/${patientId}/treatments/${id}`),
       { ...patch, updatedAt: new Date().toISOString() },
     )
+
+    // Update in allTreatments cache
+    set(s => ({
+      allTreatments: s.allTreatments.map(t => t.id === id ? { ...t, ...patch, updatedAt: new Date().toISOString() } : t)
+    }))
   },
 
   async deleteTreatment(id) {
@@ -61,6 +96,11 @@ export const useTreatmentStore = create((set, get) => ({
       await Promise.all(entry.files.map(f => deleteFile(f.storagePath)))
     }
     await deleteDoc(doc(db, `users/${uid}/patients/${patientId}/treatments/${id}`))
+
+    // Delete from allTreatments cache
+    set(s => ({
+      allTreatments: s.allTreatments.filter(t => t.id !== id)
+    }))
   },
 
   async addFile(treatmentId, fileMeta) {

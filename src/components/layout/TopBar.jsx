@@ -11,6 +11,8 @@ export default function TopBar() {
   const user = useAuthStore(s => s.user)
   const globalQuery = useUIStore(s => s.globalQuery)
   const setGlobalQuery = useUIStore(s => s.setGlobalQuery)
+  const globalSearchType = useUIStore(s => s.globalSearchType)
+  const setGlobalSearchType = useUIStore(s => s.setGlobalSearchType)
   const selectPatient = useUIStore(s => s.selectPatient)
   const [focused, setFocused] = useState(false)
   const [showNew, setShowNew] = useState(false)
@@ -53,17 +55,37 @@ export default function TopBar() {
         + מטופל.ת חדש.ה
       </Button>
 
-      <div className="flex-1 relative max-w-md mx-auto">
-        <input
-          ref={inputRef}
-          value={globalQuery}
-          onChange={e => setGlobalQuery(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setTimeout(() => setFocused(false), 150)}
-          placeholder="חיפוש מטופלים..."
-          className="w-full rounded-lg bg-white/20 placeholder:text-teal-100 text-white px-3 py-1.5 text-sm focus:outline-none focus:bg-white/30"
-        />
-        {focused && <GlobalSearchResults onSelect={handleSelect} />}
+      <div className="flex-1 flex gap-2 items-center max-w-lg mx-auto">
+        <select
+          value={globalSearchType || 'patient'}
+          onChange={e => setGlobalSearchType(e.target.value)}
+          className="rounded-lg bg-white/20 text-white px-2 py-1.5 text-sm focus:outline-none focus:bg-white/30 border-0 cursor-pointer text-right min-w-[110px]"
+        >
+          <option value="patient" className="text-slate-800">מטופל</option>
+          <option value="mainComplaint" className="text-slate-800">תלונה ראשית</option>
+          <option value="secondaryComplaint" className="text-slate-800">תלונה משנית</option>
+          <option value="notes" className="text-slate-800">הערות טיפול</option>
+          <option value="isInfo" className="text-slate-800">מידע נוסף</option>
+        </select>
+
+        <div className="flex-1 relative">
+          <input
+            ref={inputRef}
+            value={globalQuery}
+            onChange={e => setGlobalQuery(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setTimeout(() => setFocused(false), 200)}
+            placeholder={
+              globalSearchType === 'patient' ? 'חיפוש מטופלים...' :
+              globalSearchType === 'mainComplaint' ? 'חיפוש בתלונה ראשית...' :
+              globalSearchType === 'secondaryComplaint' ? 'חיפוש בתלונה משנית...' :
+              globalSearchType === 'notes' ? 'חיפוש בהערות טיפול...' :
+              'חיפוש במידע נוסף...'
+            }
+            className="w-full rounded-lg bg-white/20 placeholder:text-teal-100 text-white px-3 py-1.5 text-sm focus:outline-none focus:bg-white/30 text-right"
+          />
+          {focused && <GlobalSearchResults onSelect={handleSelect} />}
+        </div>
       </div>
 
       <div className="flex items-center gap-2 mr-auto">
