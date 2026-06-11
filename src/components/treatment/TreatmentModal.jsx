@@ -6,7 +6,8 @@ import { useTreatmentStore } from '../../store/useTreatmentStore'
 import { usePatientStore } from '../../store/usePatientStore'
 import { useUIStore } from '../../store/useUIStore'
 
-export default function TreatmentModal({ open, onClose, existing, treatmentNumber, nextTreatmentNumber }) {
+export default function TreatmentModal({ open, onClose, existing, treatmentNumber, nextTreatmentNumber, isInfo = false }) {
+  const isInfoMode = existing ? !!existing.isInfo : isInfo
   const [data, setData] = useState(emptyEntry())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -30,7 +31,7 @@ export default function TreatmentModal({ open, onClose, existing, treatmentNumbe
       if (existing) {
         await updateTreatment(existing.id, data)
       } else {
-        await addTreatment(data)
+        await addTreatment({ ...data, isInfo: isInfoMode })
       }
       onClose()
     } catch {
@@ -41,8 +42,8 @@ export default function TreatmentModal({ open, onClose, existing, treatmentNumbe
   }
 
   const modalTitle = existing
-    ? `עריכת טיפול (טיפול ${treatmentNumber})`
-    : `הוספת טיפול (טיפול ${nextTreatmentNumber})`
+    ? (isInfoMode ? 'עריכת מידע נוסף' : `עריכת טיפול (טיפול ${treatmentNumber})`)
+    : (isInfoMode ? 'הוספת מידע נוסף' : `הוספת טיפול (טיפול ${nextTreatmentNumber})`)
 
   return (
     <Modal
@@ -55,7 +56,7 @@ export default function TreatmentModal({ open, onClose, existing, treatmentNumbe
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-2 justify-end pt-2">
         <Button variant="secondary" onClick={onClose} disabled={loading}>ביטול</Button>
-        <Button onClick={handleSave} disabled={loading}>{loading ? 'שומר...' : 'שמור טיפול'}</Button>
+        <Button onClick={handleSave} disabled={loading}>{loading ? 'שומר...' : (isInfoMode ? 'שמור' : 'שמור טיפול')}</Button>
       </div>
     </Modal>
   )

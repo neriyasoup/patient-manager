@@ -41,7 +41,9 @@ export default function TreatmentEntry({ entry, index, compact = false }) {
     <div className="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-3 shadow-sm">
       <div className={compact ? 'flex flex-col gap-2' : 'flex items-start justify-between gap-2'}>
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-bold text-teal-700 text-sm">טיפול {index}</span>
+          <span className={entry.isInfo ? "font-bold text-indigo-700 text-sm" : "font-bold text-teal-700 text-sm"}>
+            {entry.isInfo ? "מידע נוסף" : `טיפול ${index}`}
+          </span>
           <span className="text-slate-300 text-xs">|</span>
           <span className="font-semibold text-slate-600 text-sm">{formatDate(entry.date)}</span>
           {entry.time && <span className="text-slate-500 text-xs">{entry.time}</span>}
@@ -66,13 +68,13 @@ export default function TreatmentEntry({ entry, index, compact = false }) {
         </div>
       )}
 
-      <TreatmentModal open={editOpen} onClose={() => setEditOpen(false)} existing={entry} treatmentNumber={index} />
+      <TreatmentModal open={editOpen} onClose={() => setEditOpen(false)} existing={entry} treatmentNumber={index} isInfo={entry.isInfo} />
       <ConfirmDialog
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleDelete}
-        title="מחיקת טיפול"
-        message="מחק את רשומת הטיפול הזו?"
+        title={entry.isInfo ? "מחיקת מידע נוסף" : "מחיקת טיפול"}
+        message={entry.isInfo ? "האם למחוק רשומה זו של מידע נוסף?" : "מחק את רשומת הטיפול הזו?"}
         loading={loading}
       />
     </div>
