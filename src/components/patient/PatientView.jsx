@@ -11,6 +11,21 @@ import Button from '../ui/Button'
 import NewPatientModal from './NewPatientModal'
 import CalendarDashboard from '../calendar/CalendarDashboard'
 import Textarea from '../ui/Textarea'
+import { v4 as uuidv4 } from 'uuid'
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function formatHebrewDateShort(dateStr) {
+  if (!dateStr) return ''
+  try {
+    const d = new Date(`${dateStr}T12:00:00`)
+    return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'short', year: 'numeric' })
+  } catch {
+    return dateStr
+  }
+}
 
 export default function PatientView() {
   const selectedPatientId = useUIStore(s => s.selectedPatientId)
@@ -24,28 +39,68 @@ export default function PatientView() {
   const showAdditionalInfo = useUIStore(s => s.showAdditionalInfo)
   const toggleAdditionalInfo = useUIStore(s => s.toggleAdditionalInfo)
 
-  const [infoText, setInfoText] = useState('')
+  const [newText, setNewText] = useState('')
+  const [newDate, setNewDate] = useState(todayStr)
+  const [editingId, setEditingId] = useState(null)
+  const [editingText, setEditingText] = useState('')
+  const [editingDate, setEditingDate] = useState('')
   const [saving, setSaving] = useState(false)
-  const [saveSuccess, setSaveSuccess] = useState(false)
 
-  useEffect(() => {
-    if (patient) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setInfoText(patient.additionalInfo ?? '')
-      setSaveSuccess(false)
-    }
-  }, [patient])
+  const infoList = Array.isArray(patient?.additionalInfo) ? patient.additionalInfo : []
 
-  async function handleSaveInfo() {
-    if (!patient) return
+  const sortedInfoList = [...infoList].sort((a, b) => {
+    const dateComp = (b.date || '').localeCompare(a.date || '')
+    if (dateComp !== 0) return dateComp
+    return (b.createdAt || '').localeCompare(a.createdAt || '')
+  })
+
+  async function handleAddInfo() {
+    if (!patient || !newText.trim()) return
     setSaving(true)
-    setSaveSuccess(false)
     try {
-      await updatePatient(patient.id, { additionalInfo: infoText })
-      setSaveSuccess(true)
-      setTimeout(() => setSaveSuccess(false), 3000)
+      const entry = {
+        id: uuidv4(),
+        date: newDate,
+        text: newText.trim(),
+        createdAt: new Date().toISOString(),
+      }
+      const updatedList = [entry, ...infoList]
+      await updatePatient(patient.id, { additionalInfo: updatedList })
+      setNewText('')
+      setNewDate(todayStr())
     } catch (err) {
-      console.error(err)
+      console.error('Error adding additional info:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleUpdateInfo(id) {
+    if (!patient || !editingText.trim()) return
+    setSaving(true)
+    try {
+      const updatedList = infoList.map(item =>
+        item.id === id ? { ...item, text: editingText.trim(), date: editingDate } : item
+      )
+      await updatePatient(patient.id, { additionalInfo: updatedList })
+      setEditingId(null)
+      setEditingText('')
+      setEditingDate('')
+    } catch (err) {
+      console.error('Error updating additional info:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDeleteInfo(id) {
+    if (!patient || !window.confirm('האם למחוק רשומה זו?')) return
+    setSaving(true)
+    try {
+      const updatedList = infoList.filter(item => item.id !== id)
+      await updatePatient(patient.id, { additionalInfo: updatedList })
+    } catch (err) {
+      console.error('Error deleting additional info:', err)
     } finally {
       setSaving(false)
     }
@@ -135,8 +190,9 @@ export default function PatientView() {
         }`}
       >
         <div className="w-[272px] flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-slate-700 text-sm">מידע נוסף</h3>
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+            <h3 className="font-bold text-slate-800 text-sm">מידע נוסף</h3>
             <button
               onClick={() => toggleAdditionalInfo()}
               className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors flex items-center justify-center text-xs focus:outline-none cursor-pointer"
@@ -146,30 +202,118 @@ export default function PatientView() {
             </button>
           </div>
 
-          <p className="text-xs text-slate-400 leading-relaxed">
-            הוסיפי ועדכני מידע כללי, רקע רפואי, אלרגיות או הערות חשובות שאינן קשורות לטיפול ספציפי.
-          </p>
+          {/* Form to Add New Entry */}
+          <div className="bg-white p-3 rounded-lg border border-slate-200 flex flex-col gap-3 shadow-xs">
+            <Textarea
+              label="הוסיפי הערה חדשה"
+              value={newText}
+              onChange={(e) => setNewText(e.target.value)}
+              rows={3}
+              placeholder="רקע, אלרגיות, עדכונים..."
+            />
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <label className="text-[10px] font-medium text-slate-500 block mb-0.5">תאריך</label>
+                <input
+                  type="date"
+                  value={newDate}
+                  onChange={(e) => setNewDate(e.target.value)}
+                  className="w-full rounded-md border border-slate-300 px-2.5 py-1 text-xs text-slate-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 transition-colors"
+                />
+              </div>
+              <Button
+                onClick={handleAddInfo}
+                disabled={saving || !newText.trim()}
+                size="sm"
+                className="bg-teal-600 hover:bg-teal-700 text-white font-semibold py-1 px-3"
+              >
+                הוסיפי
+              </Button>
+            </div>
+          </div>
 
-          <Textarea
-            value={infoText}
-            onChange={(e) => setInfoText(e.target.value)}
-            rows={10}
-            placeholder="הקלידי מידע נוסף כאן..."
-          />
+          {/* Chronological List of Entries */}
+          <div className="flex flex-col gap-3">
+            {sortedInfoList.length === 0 ? (
+              <p className="text-xs text-slate-400 text-center py-6">אין מידע נוסף מתועד</p>
+            ) : (
+              sortedInfoList.map((item) => {
+                const isEditing = editingId === item.id
 
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={handleSaveInfo}
-              disabled={saving}
-              size="sm"
-              className="bg-teal-600 hover:bg-teal-700 text-white font-semibold shadow-xs"
-            >
-              {saving ? 'שומר...' : 'שמור'}
-            </Button>
-            {saveSuccess && (
-              <span className="text-xs text-green-600 font-semibold animate-pulse flex items-center gap-1">
-                ✓ נשמר בהצלחה
-              </span>
+                return (
+                  <div key={item.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-xs flex flex-col gap-2 relative group text-right" dir="rtl">
+                    {isEditing ? (
+                      // Inline Editing Mode
+                      <div className="flex flex-col gap-2">
+                        <Textarea
+                          value={editingText}
+                          onChange={(e) => setEditingText(e.target.value)}
+                          rows={3}
+                        />
+                        <div className="flex gap-2 items-center justify-between">
+                          <input
+                            type="date"
+                            value={editingDate}
+                            onChange={(e) => setEditingDate(e.target.value)}
+                            className="rounded-md border border-slate-300 px-2.5 py-1 text-xs text-slate-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 transition-colors"
+                          />
+                          <div className="flex gap-1.5">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => setEditingId(null)}
+                              disabled={saving}
+                              className="px-2 py-0.5 text-xs"
+                            >
+                              ביטול
+                            </Button>
+                            <Button
+                              onClick={() => handleUpdateInfo(item.id)}
+                              disabled={saving || !editingText.trim()}
+                              size="sm"
+                              className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-0.5 text-xs font-semibold"
+                            >
+                              שמור
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      // Read Mode
+                      <>
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-1">
+                          <span className="text-[10px] font-bold text-slate-400">
+                            {formatHebrewDateShort(item.date)}
+                          </span>
+                          <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => {
+                                setEditingId(item.id)
+                                setEditingText(item.text)
+                                setEditingDate(item.date || todayStr())
+                              }}
+                              className="text-[10px] text-teal-600 hover:text-teal-800 font-semibold cursor-pointer"
+                              title="ערוך הערה"
+                            >
+                              עריכה
+                            </button>
+                            <button
+                              onClick={() => handleDeleteInfo(item.id)}
+                              className="text-[10px] text-red-500 hover:text-red-700 font-semibold cursor-pointer"
+                              title="מחק הערה"
+                            >
+                              מחיקה
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">
+                          {item.text}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )
+              })
             )}
           </div>
         </div>
