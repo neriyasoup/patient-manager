@@ -42,7 +42,7 @@ export default function TreatmentEntry({ entry, index, compact = false }) {
       <div className={compact ? 'flex flex-col gap-2' : 'flex items-start justify-between gap-2'}>
         <div className="flex items-center gap-2 flex-wrap">
           <span className={entry.isInfo ? "font-bold text-indigo-700 text-sm" : "font-bold text-teal-700 text-sm"}>
-            {entry.isInfo ? "מידע נוסף" : `טיפול ${index}`}
+            {entry.isInfo ? `מידע נוסף ${index}` : `טיפול ${index}`}
           </span>
           <span className="text-slate-300 text-xs">|</span>
           <span className="font-semibold text-slate-600 text-sm">{formatDate(entry.date)}</span>

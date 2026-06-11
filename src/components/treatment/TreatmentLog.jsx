@@ -43,12 +43,21 @@ export default function TreatmentLog({ hideFirst = false }) {
 
       <div className="flex flex-col gap-3">
         {visibleTreatments.map((t) => {
-          const treatmentsOnly = treatments.filter(x => !x.isInfo)
-          const originalIndex = treatmentsOnly.findIndex(orig => orig.id === t.id)
-          const index = originalIndex !== -1 ? treatmentsOnly.length - originalIndex : null
-          return (
-            <TreatmentEntry key={t.id} entry={t} index={index} />
-          )
+          if (t.isInfo) {
+            const infoOnly = treatments.filter(x => x.isInfo)
+            const originalIndex = infoOnly.findIndex(orig => orig.id === t.id)
+            const index = originalIndex !== -1 ? infoOnly.length - originalIndex : null
+            return (
+              <TreatmentEntry key={t.id} entry={t} index={index} />
+            )
+          } else {
+            const treatmentsOnly = treatments.filter(x => !x.isInfo)
+            const originalIndex = treatmentsOnly.findIndex(orig => orig.id === t.id)
+            const index = originalIndex !== -1 ? treatmentsOnly.length - originalIndex : null
+            return (
+              <TreatmentEntry key={t.id} entry={t} index={index} />
+            )
+          }
         })}
       </div>
 
