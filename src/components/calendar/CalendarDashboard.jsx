@@ -477,18 +477,18 @@ export default function CalendarDashboard() {
             </Button>
             <div className="flex items-center rounded-lg border border-slate-300 overflow-hidden bg-white shadow-sm">
               <button
-                onClick={() => changeDate(1)}
-                className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 border-l border-slate-300 font-bold text-sm focus:outline-none transition-colors"
-                title="יום הבא"
-              >
-                יום הבא ▶
-              </button>
-              <button
                 onClick={() => changeDate(-1)}
-                className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-sm focus:outline-none transition-colors"
+                className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 border-l border-slate-300 font-bold text-sm focus:outline-none transition-colors"
                 title="יום קודם"
               >
                 ◀ יום קודם
+              </button>
+              <button
+                onClick={() => changeDate(1)}
+                className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-sm focus:outline-none transition-colors"
+                title="יום הבא"
+              >
+                יום הבא ▶
               </button>
             </div>
             <input
