@@ -12,10 +12,10 @@ function nowStr() { return new Date().toTimeString().slice(0, 5) }
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function emptyEntry() {
-  return { date: todayStr(), time: nowStr(), notes: '', files: [] }
+  return { date: todayStr(), time: nowStr(), notes: '', mainComplaint: '', secondaryComplaint: '', files: [] }
 }
 
-export default function TreatmentEntryForm({ data, onChange }) {
+export default function TreatmentEntryForm({ data, onChange, isInfo = false }) {
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
   const uid = useAuthStore(s => s.user?.uid)
@@ -59,6 +59,12 @@ export default function TreatmentEntryForm({ data, onChange }) {
         <Input label="תאריך" type="date" {...field('date')} />
         <Input label="שעה" type="time" {...field('time')} />
       </div>
+      {!isInfo && (
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="תלונה ראשית" placeholder="כאב ראש, בעיות שינה..." {...field('mainComplaint')} />
+          <Input label="תלונה משנית" placeholder="כאבי גב, עייפות..." {...field('secondaryComplaint')} />
+        </div>
+      )}
       <Textarea label="הערות טיפול" rows={5} placeholder="תיאור הטיפול, נקודות, תגובות..." {...field('notes')} />
       <div>
         <p className="text-xs font-medium text-slate-600 mb-1.5">צרף קבצים</p>

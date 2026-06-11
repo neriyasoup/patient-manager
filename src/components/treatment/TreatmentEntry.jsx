@@ -57,7 +57,22 @@ export default function TreatmentEntry({ entry, index, compact = false }) {
           </Button>
         </div>
       </div>
-
+      {(!entry.isInfo) && (entry.mainComplaint || entry.secondaryComplaint) && (
+        <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-100 text-xs">
+          {entry.mainComplaint && (
+            <div className="flex flex-col gap-0.5 text-right">
+              <span className="font-bold text-slate-500">תלונה ראשית:</span>
+              <span className="text-slate-800 font-semibold">{entry.mainComplaint}</span>
+            </div>
+          )}
+          {entry.secondaryComplaint && (
+            <div className="flex flex-col gap-0.5 text-right">
+              <span className="font-bold text-slate-500">תלונה משנית:</span>
+              <span className="text-slate-800 font-semibold">{entry.secondaryComplaint}</span>
+            </div>
+          )}
+        </div>
+      )}
       {entry.notes && (
         <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{entry.notes}</p>
       )}

@@ -52,7 +52,7 @@ export default function TreatmentModal({ open, onClose, existing, treatmentNumbe
       title={`${modalTitle}${patientName ? ` — ${patientName}` : ''}`}
       maxWidth="max-w-lg"
     >
-      <TreatmentEntryForm data={data} onChange={setData} />
+      <TreatmentEntryForm data={data} onChange={setData} isInfo={isInfoMode} />
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-2 justify-end pt-2">
         <Button variant="secondary" onClick={onClose} disabled={loading}>ביטול</Button>
