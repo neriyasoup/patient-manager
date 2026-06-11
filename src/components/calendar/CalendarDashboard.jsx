@@ -119,6 +119,57 @@ const parseEventName = (summary) => {
   return { firstName: '', lastName: '' }
 }
 
+const monthNames = [
+  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'
+]
+
+const getMonthDays = (dateObj) => {
+  const year = dateObj.getFullYear()
+  const month = dateObj.getMonth()
+  
+  const firstDay = new Date(year, month, 1)
+  const startDayOfWeek = firstDay.getDay()
+  
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const prevMonthDays = new Date(year, month, 0).getDate()
+  
+  const grid = []
+  
+  for (let i = startDayOfWeek - 1; i >= 0; i--) {
+    const d = prevMonthDays - i
+    const prevMonth = month === 0 ? 12 : month
+    const prevYear = month === 0 ? year - 1 : year
+    grid.push({
+      day: d,
+      isCurrentMonth: false,
+      dateStr: `${prevYear}-${String(prevMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    })
+  }
+  
+  for (let d = 1; d <= daysInMonth; d++) {
+    grid.push({
+      day: d,
+      isCurrentMonth: true,
+      dateStr: `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    })
+  }
+  
+  const totalCells = 42
+  const remaining = totalCells - grid.length
+  for (let d = 1; d <= remaining; d++) {
+    const nextMonth = month === 11 ? 1 : month + 2
+    const nextYear = month === 11 ? year + 1 : year
+    grid.push({
+      day: d,
+      isCurrentMonth: false,
+      dateStr: `${nextYear}-${String(nextMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    })
+  }
+  
+  return grid
+}
+
 export default function CalendarDashboard() {
   const user = useAuthStore(s => s.user)
   const uid = user?.uid
@@ -177,6 +228,15 @@ export default function CalendarDashboard() {
         const query = searchQuery.toLowerCase()
         return fullName.includes(query) || (p.phone && p.phone.includes(query))
       })
+
+  const [viewDate, setViewDate] = useState(() => new Date(`${selectedDate}T12:00:00`))
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setViewDate(new Date(`${selectedDate}T12:00:00`))
+  }, [selectedDate])
+
+  const viewMonthLabel = `${monthNames[viewDate.getMonth()]} ${viewDate.getFullYear()}`
 
   useEffect(() => {
     if (googleToken) {
@@ -393,7 +453,7 @@ export default function CalendarDashboard() {
 
   return (
     <div className="flex-1 bg-slate-50/50 p-6 overflow-y-auto w-full" dir="rtl">
-      <div className="max-w-4xl mx-auto flex flex-col gap-6">
+      <div className="max-w-6xl mx-auto flex flex-col gap-6">
         
         {/* Header Section */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
@@ -440,8 +500,73 @@ export default function CalendarDashboard() {
           </div>
         </div>
 
-        {/* Calendar Content */}
-        {renderContent()}
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Right column: Clickable Month Calendar */}
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm w-full lg:w-[310px] shrink-0 self-start flex flex-col gap-4">
+            {/* Calendar Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <button
+                onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}
+                className="p-1 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors focus:outline-none cursor-pointer"
+                title="חודש קודם"
+              >
+                ◀
+              </button>
+              <span className="font-extrabold text-slate-800 text-sm">{viewMonthLabel}</span>
+              <button
+                onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}
+                className="p-1 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors focus:outline-none cursor-pointer"
+                title="חודש הבא"
+              >
+                ▶
+              </button>
+            </div>
+
+            {/* Days of Week Header */}
+            <div className="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400">
+              <div>א'</div>
+              <div>ב'</div>
+              <div>ג'</div>
+              <div>ד'</div>
+              <div>ה'</div>
+              <div>ו'</div>
+              <div>ש'</div>
+            </div>
+
+            {/* Days Grid */}
+            <div className="grid grid-cols-7 gap-y-1.5 justify-items-center">
+              {getMonthDays(viewDate).map((cell, idx) => {
+                const isSelected = cell.dateStr === selectedDate
+                const isCurrentMonth = cell.isCurrentMonth
+                const todayStr = new Date().toISOString().split('T')[0]
+                const isToday = cell.dateStr === todayStr
+
+                return (
+                  <button
+                    key={`${cell.dateStr}-${idx}`}
+                    onClick={() => setSelectedDate(cell.dateStr)}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all focus:outline-none cursor-pointer ${
+                      isSelected
+                        ? 'bg-teal-600 text-white shadow-sm hover:bg-teal-700 scale-105'
+                        : isToday
+                        ? 'border border-teal-500 text-teal-600 hover:bg-teal-50 font-bold'
+                        : isCurrentMonth
+                        ? 'text-slate-700 hover:bg-slate-100'
+                        : 'text-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    {cell.day}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Left column: Daily Appointments Timeline */}
+          <div className="flex-1 min-w-0">
+            {renderContent()}
+          </div>
+        </div>
 
       </div>
 
