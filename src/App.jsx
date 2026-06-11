@@ -4,6 +4,7 @@ import { useAuthStore } from './store/useAuthStore'
 import { usePatientStore } from './store/usePatientStore'
 import { useTreatmentStore } from './store/useTreatmentStore'
 import { useUIStore } from './store/useUIStore'
+import { useCalendarStore } from './store/useCalendarStore'
 import LoginPage from './pages/LoginPage'
 import ClinicPage from './pages/ClinicPage'
 import PatientsPage from './pages/PatientsPage'
@@ -16,8 +17,10 @@ function AuthWatcher() {
   useEffect(() => {
     if (uid) {
       usePatientStore.getState().init(uid)
+      useCalendarStore.getState().initMatches(uid)
     } else {
       usePatientStore.getState().destroy()
+      useCalendarStore.getState().destroyMatches?.()
     }
   }, [uid])
 

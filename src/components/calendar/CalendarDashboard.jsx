@@ -5,6 +5,7 @@ import { usePatientStore } from '../../store/usePatientStore'
 import { useUIStore } from '../../store/useUIStore'
 import NewPatientModal from '../patient/NewPatientModal'
 import Button from '../ui/Button'
+import Modal from '../ui/Modal'
 
 // SVG Icons
 const ClockIcon = () => (
@@ -119,6 +120,8 @@ const parseEventName = (summary) => {
 }
 
 export default function CalendarDashboard() {
+  const user = useAuthStore(s => s.user)
+  const uid = user?.uid
   const googleToken = useAuthStore(s => s.googleToken)
   const refreshGoogleToken = useAuthStore(s => s.refreshGoogleToken)
   
@@ -128,12 +131,52 @@ export default function CalendarDashboard() {
   const loading = useCalendarStore(s => s.loading)
   const error = useCalendarStore(s => s.error)
   const fetchEvents = useCalendarStore(s => s.fetchEvents)
+  const matches = useCalendarStore(s => s.matches)
+  const matchEvent = useCalendarStore(s => s.matchEvent)
 
   const patients = usePatientStore(s => s.patients)
   const selectPatient = useUIStore(s => s.selectPatient)
 
   const [newPatientOpen, setNewPatientOpen] = useState(false)
   const [prefilledData, setPrefilledData] = useState(null)
+
+  // Match Modal State
+  const [matchModalOpen, setMatchModalOpen] = useState(false)
+  const [eventToMatch, setEventToMatch] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedMatchPatientId, setSelectedMatchPatientId] = useState(null)
+  const [savingMatch, setSavingMatch] = useState(false)
+
+  const handleOpenMatchModal = (event) => {
+    setEventToMatch(event)
+    const parsed = parseEventName(event.summary)
+    setSearchQuery(parsed.firstName || '')
+    setSelectedMatchPatientId(null)
+    setMatchModalOpen(true)
+  }
+
+  const handleSaveMatch = async () => {
+    if (!uid || !eventToMatch || !selectedMatchPatientId) return
+    setSavingMatch(true)
+    try {
+      await matchEvent(uid, eventToMatch.id, selectedMatchPatientId)
+      setMatchModalOpen(false)
+      setEventToMatch(null)
+      setSelectedMatchPatientId(null)
+    } catch (err) {
+      console.error('Failed to save manual match:', err)
+    } finally {
+      setSavingMatch(false)
+    }
+  }
+
+  const filteredPatients = searchQuery.trim() === ''
+    ? patients
+    : patients.filter(p => {
+        const fullName = `${p.firstName} ${p.lastName}`.toLowerCase()
+        const query = searchQuery.toLowerCase()
+        return fullName.includes(query) || (p.phone && p.phone.includes(query))
+      })
 
   useEffect(() => {
     if (googleToken) {
@@ -225,7 +268,9 @@ export default function CalendarDashboard() {
     return (
       <div className="flex flex-col gap-4 mt-6 max-w-3xl mx-auto">
         {events.map((event) => {
-          const matched = matchPatient(event.summary, patients)
+          const matched = matches[event.id]
+            ? patients.find(p => p.id === matches[event.id])
+            : matchPatient(event.summary, patients)
           const allDay = !event.start?.dateTime
           const startTime = allDay ? '' : formatEventTime(event.start.dateTime)
           const endTime = allDay ? '' : formatEventTime(event.end.dateTime)
@@ -285,6 +330,13 @@ export default function CalendarDashboard() {
                         <span className="bg-slate-100 text-slate-600 border border-slate-200 rounded-full px-2 py-0.5 text-[10px] font-medium">
                           לא משויך
                         </span>
+                        <button
+                          onClick={() => handleOpenMatchModal(event)}
+                          className="text-[10px] text-teal-600 hover:text-teal-700 font-semibold focus:outline-none cursor-pointer flex items-center gap-0.5"
+                          title="שייך פגישה זו למטופל קיים במערכת"
+                        >
+                          🔗 שייך למטופל
+                        </button>
                       </div>
                       {event.description && (
                         <p className="text-xs text-slate-400 line-clamp-1 max-w-md">
@@ -401,6 +453,94 @@ export default function CalendarDashboard() {
         }}
         initialData={prefilledData}
       />
+
+      <Modal
+        open={matchModalOpen}
+        onClose={() => {
+          setMatchModalOpen(false)
+          setEventToMatch(null)
+          setSelectedMatchPatientId(null)
+        }}
+        title="שיוך פגישה למטופל קיים"
+        maxWidth="max-w-md"
+      >
+        <div className="flex flex-col gap-4 text-right" dir="rtl">
+          {eventToMatch && (
+            <div>
+              <span className="text-xs font-semibold text-slate-500 block mb-1">פגישה שנבחרה:</span>
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm font-bold text-slate-800">
+                {eventToMatch.summary || '(ללא כותרת)'}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs font-semibold text-slate-500 block mb-1">חפש מטופל מהרשימה:</label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="הקלד שם או טלפון לחיפוש..."
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 bg-white"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-semibold text-slate-500">בחר מטופל להתאמה:</span>
+            <div className="border border-slate-200 rounded-lg max-h-48 overflow-y-auto divide-y divide-slate-100 bg-white shadow-inner">
+              {filteredPatients.length === 0 ? (
+                <div className="p-4 text-xs text-slate-400 text-center">לא נמצאו מטופלים תואמים</div>
+              ) : (
+                filteredPatients.map((p) => {
+                  const isSelected = selectedMatchPatientId === p.id
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setSelectedMatchPatientId(p.id)}
+                      className={`w-full text-right px-3 py-2 text-xs transition-colors flex items-center justify-between focus:outline-none ${
+                        isSelected
+                          ? 'bg-teal-50 text-teal-800 font-bold border-r-4 border-teal-600'
+                          : 'hover:bg-slate-50 text-slate-700'
+                      }`}
+                    >
+                      <div>
+                        <span className="font-semibold block">{p.firstName} {p.lastName}</span>
+                        {p.phone && <span className="text-[10px] text-slate-400">📞 {p.phone}</span>}
+                      </div>
+                      {isSelected && <span className="text-teal-600 font-bold">✓</span>}
+                    </button>
+                  )
+                })
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-end pt-2 border-t border-slate-100 mt-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setMatchModalOpen(false)
+                setEventToMatch(null)
+                setSelectedMatchPatientId(null)
+              }}
+              disabled={savingMatch}
+            >
+              ביטול
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSaveMatch}
+              disabled={!selectedMatchPatientId || savingMatch}
+              className="bg-teal-600 hover:bg-teal-700 border-teal-600 text-white font-semibold"
+            >
+              {savingMatch ? 'משייך...' : 'שייך פגישה'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

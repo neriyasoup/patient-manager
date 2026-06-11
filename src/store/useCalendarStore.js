@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore'
+import { db } from '../firebase'
 import { useAuthStore } from './useAuthStore'
 
 const getTodayStr = () => {
@@ -15,8 +17,36 @@ export const useCalendarStore = create((set, get) => ({
   loading: false,
   error: null,
   subCalendarId: null,
+  matches: {},
+  _unsubscribeMatches: null,
 
   setSelectedDate: (dateStr) => set({ selectedDate: dateStr }),
+
+  initMatches(uid) {
+    get()._unsubscribeMatches?.()
+    const ref = collection(db, `users/${uid}/calendarMatches`)
+    const unsub = onSnapshot(ref, (snap) => {
+      const matches = {}
+      snap.docs.forEach(d => {
+        matches[d.id] = d.data().patientId
+      })
+      set({ matches })
+    })
+    set({ _unsubscribeMatches: unsub })
+  },
+
+  destroyMatches() {
+    get()._unsubscribeMatches?.()
+    set({ matches: {}, _unsubscribeMatches: null })
+  },
+
+  async matchEvent(uid, eventId, patientId) {
+    await setDoc(doc(db, `users/${uid}/calendarMatches/${eventId}`), {
+      patientId,
+      eventId,
+      updatedAt: new Date().toISOString(),
+    })
+  },
 
   async fetchSubCalendarId(token) {
     if (get().subCalendarId) return get().subCalendarId
