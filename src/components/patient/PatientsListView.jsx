@@ -86,7 +86,7 @@ export default function PatientsListView() {
           <p className="text-sm text-slate-500 mt-0.5">סך הכל: {patients.length} מטופלים במערכת</p>
         </div>
         <Button onClick={() => setShowNew(true)} className="self-start sm:self-auto">
-          + מטופל חדש
+          + מטופל.ת חדש.ה
         </Button>
       </div>
 
@@ -144,7 +144,7 @@ export default function PatientsListView() {
             }
             action={
               (!query.trim() && statusFilter === 'all') && (
-                <Button onClick={() => setShowNew(true)}>מטופל חדש</Button>
+                <Button onClick={() => setShowNew(true)}>מטופל.ת חדש.ה</Button>
               )
             }
           />

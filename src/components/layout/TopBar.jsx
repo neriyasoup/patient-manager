@@ -50,7 +50,7 @@ export default function TopBar() {
         size="sm"
         className="bg-white/10 hover:bg-white/20 text-white border border-white/20"
       >
-        + מטופל חדש
+        + מטופל.ת חדש.ה
       </Button>
 
       <div className="flex-1 relative max-w-md mx-auto">

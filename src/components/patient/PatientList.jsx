@@ -21,7 +21,7 @@ export default function PatientList() {
   return (
     <div className="flex flex-col h-full">
       <div className="p-3 border-b border-slate-200 flex flex-col gap-2">
-        <Button onClick={() => setShowNew(true)} size="sm" className="w-full">+ מטופל חדש</Button>
+        <Button onClick={() => setShowNew(true)} size="sm" className="w-full">+ מטופל.ת חדש.ה</Button>
         <input
           value={listQuery}
           onChange={e => setListQuery(e.target.value)}

@@ -47,7 +47,7 @@ export default function NewPatientModal({ open, onClose, initialData }) {
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title="מטופל חדש" maxWidth="max-w-md">
+    <Modal open={open} onClose={handleClose} title="מטופל.ת חדש.ה" maxWidth="max-w-md">
       <PatientForm data={data} onChange={setData} />
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-2 justify-end pt-2">
