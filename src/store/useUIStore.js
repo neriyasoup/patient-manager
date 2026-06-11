@@ -7,14 +7,17 @@ export const useUIStore = create(
       selectedPatientId: null,
       listQuery: '',
       globalQuery: '',
+      showAdditionalInfo: false,
 
-      selectPatient: (id) => set({ selectedPatientId: id, globalQuery: '' }),
+      selectPatient: (id) => set({ selectedPatientId: id, globalQuery: '', showAdditionalInfo: false }),
       setListQuery: (q) => set({ listQuery: q }),
       setGlobalQuery: (q) => set({ globalQuery: q }),
+      toggleAdditionalInfo: () => set((s) => ({ showAdditionalInfo: !s.showAdditionalInfo })),
+      setAdditionalInfoOpen: (open) => set({ showAdditionalInfo: open }),
     }),
     {
       name: 'clinic-ui',
-      partialize: (s) => ({ selectedPatientId: s.selectedPatientId }),
+      partialize: (s) => ({ selectedPatientId: s.selectedPatientId, showAdditionalInfo: s.showAdditionalInfo }),
     }
   )
 )

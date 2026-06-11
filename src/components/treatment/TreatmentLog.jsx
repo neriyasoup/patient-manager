@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTreatmentStore } from '../../store/useTreatmentStore'
+import { useUIStore } from '../../store/useUIStore'
 import TreatmentEntry from './TreatmentEntry'
 import TreatmentModal from './TreatmentModal'
 import Button from '../ui/Button'
@@ -10,6 +11,9 @@ export default function TreatmentLog({ hideFirst = false }) {
   const loading = useTreatmentStore(s => s.loading)
   const [addOpen, setAddOpen] = useState(false)
 
+  const showAdditionalInfo = useUIStore(s => s.showAdditionalInfo)
+  const toggleAdditionalInfo = useUIStore(s => s.toggleAdditionalInfo)
+
   const visibleTreatments = hideFirst && treatments.length > 0
     ? treatments.slice(0, treatments.length - 1)
     : treatments
@@ -18,7 +22,17 @@ export default function TreatmentLog({ hideFirst = false }) {
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-slate-700">יומן טיפולים</h3>
-        <Button size="sm" onClick={() => setAddOpen(true)}>+ הוסיפי טיפול</Button>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={toggleAdditionalInfo}
+            className={showAdditionalInfo ? 'bg-teal-50 border-teal-200 text-teal-700 font-semibold' : ''}
+          >
+            מידע נוסף
+          </Button>
+          <Button size="sm" onClick={() => setAddOpen(true)}>+ הוסיפי טיפול</Button>
+        </div>
       </div>
 
       {loading && <p className="text-sm text-slate-400">טוען...</p>}

@@ -10,6 +10,7 @@ import EmptyState from '../ui/EmptyState'
 import Button from '../ui/Button'
 import NewPatientModal from './NewPatientModal'
 import CalendarDashboard from '../calendar/CalendarDashboard'
+import Textarea from '../ui/Textarea'
 
 export default function PatientView() {
   const selectedPatientId = useUIStore(s => s.selectedPatientId)
@@ -18,6 +19,37 @@ export default function PatientView() {
   const treatments = useTreatmentStore(s => s.treatments)
   const [sidebarWidth, setSidebarWidth] = useState(320)
   const [isResizing, setIsResizing] = useState(false)
+
+  const updatePatient = usePatientStore(s => s.updatePatient)
+  const showAdditionalInfo = useUIStore(s => s.showAdditionalInfo)
+  const toggleAdditionalInfo = useUIStore(s => s.toggleAdditionalInfo)
+
+  const [infoText, setInfoText] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+
+  useEffect(() => {
+    if (patient) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setInfoText(patient.additionalInfo ?? '')
+      setSaveSuccess(false)
+    }
+  }, [patient])
+
+  async function handleSaveInfo() {
+    if (!patient) return
+    setSaving(true)
+    setSaveSuccess(false)
+    try {
+      await updatePatient(patient.id, { additionalInfo: infoText })
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 3000)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const startResizing = (e) => {
     e.preventDefault()
@@ -93,6 +125,53 @@ export default function PatientView() {
         <div className="flex-1 p-6 overflow-y-auto flex flex-col gap-8 bg-white">
           <TreatmentLog patientId={patient.id} hideFirst={hasFirstTreatment} />
           <GeneralFiles patient={patient} />
+        </div>
+      </div>
+
+      {/* Left Sidebar: Additional Info (collapses smoothly to the left) */}
+      <div
+        className={`shrink-0 border-r border-slate-200 bg-slate-50/50 overflow-y-auto flex flex-col gap-4 relative transition-all duration-300 ease-in-out ${
+          showAdditionalInfo ? 'w-80 opacity-100 p-6' : 'w-0 opacity-0 p-0 border-r-0 overflow-hidden'
+        }`}
+      >
+        <div className="w-[272px] flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-slate-700 text-sm">מידע נוסף</h3>
+            <button
+              onClick={() => toggleAdditionalInfo()}
+              className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors flex items-center justify-center text-xs focus:outline-none cursor-pointer"
+              title="סגור"
+            >
+              ✕
+            </button>
+          </div>
+
+          <p className="text-xs text-slate-400 leading-relaxed">
+            הוסיפי ועדכני מידע כללי, רקע רפואי, אלרגיות או הערות חשובות שאינן קשורות לטיפול ספציפי.
+          </p>
+
+          <Textarea
+            value={infoText}
+            onChange={(e) => setInfoText(e.target.value)}
+            rows={10}
+            placeholder="הקלידי מידע נוסף כאן..."
+          />
+
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleSaveInfo}
+              disabled={saving}
+              size="sm"
+              className="bg-teal-600 hover:bg-teal-700 text-white font-semibold shadow-xs"
+            >
+              {saving ? 'שומר...' : 'שמור'}
+            </Button>
+            {saveSuccess && (
+              <span className="text-xs text-green-600 font-semibold animate-pulse flex items-center gap-1">
+                ✓ נשמר בהצלחה
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>
