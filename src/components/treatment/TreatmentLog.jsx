@@ -18,17 +18,17 @@ export default function TreatmentLog({ hideFirst = false }) {
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-slate-700">יומן טיפולים</h3>
-        <Button size="sm" onClick={() => setAddOpen(true)}>+ הוסף טיפול</Button>
+        <Button size="sm" onClick={() => setAddOpen(true)}>+ הוסיפי טיפול</Button>
       </div>
 
       {loading && <p className="text-sm text-slate-400">טוען...</p>}
 
       {!loading && treatments.length === 0 && (
-        <EmptyState title="אין טיפולים עדיין" description="הוסף את הטיפול הראשון" />
+        <EmptyState title="אין טיפולים עדיין" description="הוסיפי את הטיפול הראשון" />
       )}
 
       {!loading && treatments.length > 0 && visibleTreatments.length === 0 && (
-        <EmptyState title="אין טיפולים נוספים" description="הקלק על '+ הוסף טיפול' כדי לתעד את הטיפול הבא במטופל" />
+        <EmptyState title="אין טיפולים נוספים" description="הקליקי על '+ הוסיפי טיפול' כדי לתעד את הטיפול הבא במטופל" />
       )}
 
       <div className="flex flex-col gap-3">
