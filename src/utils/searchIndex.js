@@ -7,6 +7,8 @@ export function buildSearchText(patient) {
     patient.phone,
     patient.address,
     patient.permanentNotes,
+    patient.parent1Name,
+    patient.parent2Name,
   ].filter(Boolean).join(' ').toLowerCase()
 }
 

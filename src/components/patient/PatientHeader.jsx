@@ -84,9 +84,14 @@ export default function PatientHeader({ patient }) {
             <h2 className="text-xl font-bold text-slate-800">
               {patient.firstName} {patient.lastName}
             </h2>
+            {patient.patientType === 'child' && (
+              <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+                ילד.ה
+              </span>
+            )}
             <PatientStatusBadge patientId={patient.id} status={patient.status} />
           </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-slate-500">
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-slate-500 items-center">
             {patient.dob && (
               <span>
                 ת.לידה: {formatDate(patient.dob)}{age !== null && ` (גיל ${age})`}
@@ -95,8 +100,16 @@ export default function PatientHeader({ patient }) {
             {patient.phone && <span>📞 {patient.phone}</span>}
             {patient.email && <span>✉️ {patient.email}</span>}
             {patient.address && <span>📍 {patient.address}</span>}
+            {patient.patientType === 'child' && (patient.parent1Name || patient.parent2Name) && (
+              <span className="text-slate-600 bg-slate-100 rounded px-2 py-0.5 font-medium flex gap-1 text-xs items-center">
+                👥 הורים:
+                {patient.parent1Name && ` ${patient.parent1Name} (${patient.parent1Phone || 'ללא טלפון'})`}
+                {patient.parent1Name && patient.parent2Name && ' | '}
+                {patient.parent2Name && ` ${patient.parent2Name} (${patient.parent2Phone || 'ללא טלפון'})`}
+              </span>
+            )}
             {patient.balance && Number(patient.balance) > 0 && (
-              <span className="text-red-600 font-semibold">
+              <span className="text-red-600 font-semibold bg-red-50 border border-red-100 rounded px-2 py-0.5">
                 💰 יתרת חוב: {patient.balance} ₪
               </span>
             )}
