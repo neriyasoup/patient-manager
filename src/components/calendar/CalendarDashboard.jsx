@@ -507,18 +507,20 @@ export default function CalendarDashboard() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <button
                 onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}
-                className="p-1 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors focus:outline-none cursor-pointer"
+                className="px-2 py-1 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors focus:outline-none cursor-pointer text-xs font-bold flex items-center gap-1"
                 title="חודש קודם"
               >
-                ◀
+                <span>▶</span>
+                <span>אחורה</span>
               </button>
               <span className="font-extrabold text-slate-800 text-sm">{viewMonthLabel}</span>
               <button
                 onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}
-                className="p-1 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors focus:outline-none cursor-pointer"
+                className="px-2 py-1 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors focus:outline-none cursor-pointer text-xs font-bold flex items-center gap-1"
                 title="חודש הבא"
               >
-                ▶
+                <span>קדימה</span>
+                <span>◀</span>
               </button>
             </div>
 
