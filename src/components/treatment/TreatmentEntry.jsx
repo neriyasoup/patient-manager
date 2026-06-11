@@ -39,7 +39,7 @@ export default function TreatmentEntry({ entry, index, compact = false }) {
 
   return (
     <div className={`rounded-xl border p-4 flex flex-col gap-3 shadow-sm ${
-      entry.isInfo ? 'border-green-200 bg-green-50/40' : 'border-slate-200 bg-white'
+      entry.isInfo ? 'border-green-300 bg-green-100/40' : 'border-slate-200 bg-white'
     }`}>
       <div className={compact ? 'flex flex-col gap-2' : 'flex items-start justify-between gap-2'}>
         <div className="flex items-center gap-2 flex-wrap">
