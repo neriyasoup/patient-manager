@@ -12,7 +12,7 @@ function nowStr() { return new Date().toTimeString().slice(0, 5) }
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function emptyEntry() {
-  return { date: todayStr(), time: nowStr(), notes: '', mainComplaint: '', secondaryComplaint: '', files: [] }
+  return { date: todayStr(), time: nowStr(), notes: '', mainComplaint: '', secondaryComplaint: '', selectedPoints: '', files: [] }
 }
 
 export default function TreatmentEntryForm({ data, onChange, isInfo = false }) {
@@ -60,10 +60,13 @@ export default function TreatmentEntryForm({ data, onChange, isInfo = false }) {
         <Input label="שעה" type="time" {...field('time')} />
       </div>
       {!isInfo && (
-        <div className="grid grid-cols-2 gap-3">
-          <Input label="תלונה ראשית" placeholder="כאב ראש, בעיות שינה..." {...field('mainComplaint')} />
-          <Input label="תלונה משנית" placeholder="כאבי גב, עייפות..." {...field('secondaryComplaint')} />
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="תלונה ראשית" placeholder="כאב ראש, בעיות שינה..." {...field('mainComplaint')} />
+            <Input label="תלונה משנית" placeholder="כאבי גב, עייפות..." {...field('secondaryComplaint')} />
+          </div>
+          <Input label="נקודות טיפול שנבחרו" placeholder="LI4, ST36, LV3..." {...field('selectedPoints')} />
+        </>
       )}
       <Textarea label="הערות טיפול" rows={5} placeholder="תיאור הטיפול, נקודות, תגובות..." {...field('notes')} />
       <div>
