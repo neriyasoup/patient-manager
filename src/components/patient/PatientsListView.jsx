@@ -18,6 +18,7 @@ export default function PatientsListView() {
   const deletePatient = usePatientStore(s => s.deletePatient)
   const updatePatient = usePatientStore(s => s.updatePatient)
   const selectPatient = useUIStore(s => s.selectPatient)
+  const isTreatmentFormDirty = useUIStore(s => s.isTreatmentFormDirty)
   const navigate = useNavigate()
 
   const [query, setQuery] = useState('')
@@ -45,6 +46,9 @@ export default function PatientsListView() {
   })
 
   function handleSelect(id) {
+    if (isTreatmentFormDirty) {
+      if (!window.confirm('יש לך שינויים שלא נשמרו בטיפול. האם אתה בטוח שברצונך לצאת?')) return
+    }
     selectPatient(id)
     navigate('/')
   }

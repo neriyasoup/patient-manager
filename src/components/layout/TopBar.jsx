@@ -14,12 +14,16 @@ export default function TopBar() {
   const globalSearchType = useUIStore(s => s.globalSearchType)
   const setGlobalSearchType = useUIStore(s => s.setGlobalSearchType)
   const selectPatient = useUIStore(s => s.selectPatient)
+  const isTreatmentFormDirty = useUIStore(s => s.isTreatmentFormDirty)
   const [focused, setFocused] = useState(false)
   const [showNew, setShowNew] = useState(false)
   const inputRef = useRef(null)
   const navigate = useNavigate()
 
   function handleSelect(id) {
+    if (isTreatmentFormDirty) {
+      if (!window.confirm('יש לך שינויים שלא נשמרו בטיפול. האם אתה בטוח שברצונך לצאת?')) return
+    }
     selectPatient(id)
     setGlobalQuery('')
     inputRef.current?.blur()
@@ -30,6 +34,9 @@ export default function TopBar() {
     <div className="h-14 bg-teal-700 text-white flex items-center gap-4 px-4 shrink-0 relative z-40">
       <button
         onClick={() => {
+          if (isTreatmentFormDirty) {
+            if (!window.confirm('יש לך שינויים שלא נשמרו בטיפול. האם אתה בטוח שברצונך לצאת?')) return
+          }
           selectPatient(null)
           navigate('/')
         }}
@@ -41,7 +48,12 @@ export default function TopBar() {
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => navigate('/patients')}
+        onClick={() => {
+          if (isTreatmentFormDirty) {
+            if (!window.confirm('יש לך שינויים שלא נשמרו בטיפול. האם אתה בטוח שברצונך לצאת?')) return
+          }
+          navigate('/patients')
+        }}
         className="text-white hover:bg-white/10"
       >
         👥 מטופלים

@@ -12,6 +12,7 @@ export default function PatientList() {
   const setListQuery = useUIStore(s => s.setListQuery)
   const selectedPatientId = useUIStore(s => s.selectedPatientId)
   const selectPatient = useUIStore(s => s.selectPatient)
+  const isTreatmentFormDirty = useUIStore(s => s.isTreatmentFormDirty)
   const [showNew, setShowNew] = useState(false)
 
   const filtered = listQuery.trim()
@@ -40,7 +41,12 @@ export default function PatientList() {
           return (
             <button
               key={p.id}
-              onClick={() => selectPatient(p.id)}
+              onClick={() => {
+                if (isTreatmentFormDirty) {
+                  if (!window.confirm('יש לך שינויים שלא נשמרו בטיפול. האם אתה בטוח שברצונך לצאת?')) return
+                }
+                selectPatient(p.id)
+              }}
               className={`w-full text-right px-3 py-2.5 border-b border-slate-100 hover:bg-teal-50 transition-colors flex flex-col gap-0.5 ${
                 selectedPatientId === p.id ? 'bg-teal-50 border-r-2 border-r-teal-500' : ''
               }`}
