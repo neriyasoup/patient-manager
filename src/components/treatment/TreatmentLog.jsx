@@ -127,7 +127,7 @@ export default function TreatmentLog({ hideFirst = false }) {
                 onClick={() => setIsAdding(false)}
                 disabled={addingLoading}
               >
-                비טול
+                ביטול
               </Button>
               <Button
                 size="sm"
