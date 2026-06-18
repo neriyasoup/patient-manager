@@ -48,8 +48,8 @@ export default function TreatmentLog({ hideFirst = false }) {
     const handleBeforeUnload = (e) => {
       if (isDirty) {
         e.preventDefault()
-        e.returnValue = 'יש לך שינויים שלא נשמרו בטיפול. האם לצאת?'
-        return e.returnValue
+        e.returnValue = ''
+        return ''
       }
     }
     window.addEventListener('beforeunload', handleBeforeUnload)

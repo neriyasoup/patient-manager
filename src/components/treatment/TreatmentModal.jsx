@@ -23,6 +23,26 @@ export default function TreatmentModal({ open, onClose, existing, treatmentNumbe
     setError('')
   }, [open, existing])
 
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      const isDirty = open && (
+        data.notes !== (existing?.notes ?? '') ||
+        data.mainComplaint !== (existing?.mainComplaint ?? '') ||
+        data.secondaryComplaint !== (existing?.secondaryComplaint ?? '') ||
+        data.selectedPoints !== (existing?.selectedPoints ?? '') ||
+        data.date !== (existing?.date ?? '') ||
+        data.time !== (existing?.time ?? '')
+      )
+      if (isDirty) {
+        e.preventDefault()
+        e.returnValue = ''
+        return ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [open, data, existing])
+
   async function handleSave() {
     if (!data.date) { setError('תאריך הוא שדה חובה'); return }
     setLoading(true)
@@ -41,6 +61,21 @@ export default function TreatmentModal({ open, onClose, existing, treatmentNumbe
     }
   }
 
+  function handleClose() {
+    const isDirty = (
+      data.notes !== (existing?.notes ?? '') ||
+      data.mainComplaint !== (existing?.mainComplaint ?? '') ||
+      data.secondaryComplaint !== (existing?.secondaryComplaint ?? '') ||
+      data.selectedPoints !== (existing?.selectedPoints ?? '') ||
+      data.date !== (existing?.date ?? '') ||
+      data.time !== (existing?.time ?? '')
+    )
+    if (isDirty) {
+      if (!window.confirm('יש לך שינויים שלא נשמרו. האם לסגור את הטופס?')) return
+    }
+    onClose()
+  }
+
   const modalTitle = existing
     ? (isInfoMode ? 'עריכת מידע נוסף' : `עריכת טיפול (טיפול ${treatmentNumber})`)
     : (isInfoMode ? 'הוספת מידע נוסף' : `הוספת טיפול (טיפול ${nextTreatmentNumber})`)
@@ -48,14 +83,14 @@ export default function TreatmentModal({ open, onClose, existing, treatmentNumbe
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       title={`${modalTitle}${patientName ? ` — ${patientName}` : ''}`}
       maxWidth="max-w-lg"
     >
       <TreatmentEntryForm data={data} onChange={setData} isInfo={isInfoMode} />
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-2 justify-end pt-2">
-        <Button variant="secondary" onClick={onClose} disabled={loading}>ביטול</Button>
+        <Button variant="secondary" onClick={handleClose} disabled={loading}>ביטול</Button>
         <Button onClick={handleSave} disabled={loading}>{loading ? 'שומר...' : (isInfoMode ? 'שמור' : 'שמור טיפול')}</Button>
       </div>
     </Modal>
