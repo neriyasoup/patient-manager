@@ -20,12 +20,15 @@ export default function TreatmentLog({ hideFirst = false }) {
   const treatments = useTreatmentStore(s => s.treatments)
   const loading = useTreatmentStore(s => s.loading)
   const addTreatment = useTreatmentStore(s => s.addTreatment)
+  const updateTreatment = useTreatmentStore(s => s.updateTreatment)
+  const deleteTreatment = useTreatmentStore(s => s.deleteTreatment)
 
   const [isAdding, setIsAdding] = useState(false)
   const [addingIsInfo, setAddingIsInfo] = useState(false)
   const [addingData, setAddingData] = useState(emptyEntry())
   const [addingError, setAddingError] = useState('')
   const [addingLoading, setAddingLoading] = useState(false)
+  const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved' | 'error'
 
   const isDirty = isAdding && (
     (addingData.notes && addingData.notes.trim() !== '') ||
@@ -56,11 +59,57 @@ export default function TreatmentLog({ hideFirst = false }) {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [isDirty])
 
+  // Debounced autosave
+  useEffect(() => {
+    if (!isAdding) return
+
+    const hasData = (
+      (addingData.notes && addingData.notes.trim() !== '') ||
+      (addingData.mainComplaint && addingData.mainComplaint.trim() !== '') ||
+      (addingData.secondaryComplaint && addingData.secondaryComplaint.trim() !== '') ||
+      (addingData.selectedPoints && addingData.selectedPoints.trim() !== '') ||
+      (addingData.files && addingData.files.length > 0)
+    )
+    if (!hasData) return
+
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        let currentId = addingData.id
+        let isNew = false
+        if (!currentId) {
+          const { v4: uuidv4 } = await import('uuid')
+          currentId = uuidv4()
+          isNew = true
+        }
+
+        const dataToSave = { ...addingData, id: currentId, isInfo: addingIsInfo }
+        if (isNew) {
+          setAddingData(prev => ({ ...prev, id: currentId }))
+          await addTreatment(dataToSave)
+        } else {
+          await updateTreatment(currentId, dataToSave)
+        }
+        setSaveStatus('saved')
+      } catch (err) {
+        console.error('Autosave error:', err)
+        setSaveStatus('error')
+      }
+    }, 1000)
+
+    return () => clearTimeout(delayDebounceFn)
+  }, [addingData, isAdding, addingIsInfo, addTreatment, updateTreatment])
+
   function handleStartAdd(isInfo) {
     setAddingData(emptyEntry())
     setAddingIsInfo(isInfo)
     setAddingError('')
+    setSaveStatus('idle')
     setIsAdding(true)
+  }
+
+  function handleAddingDataChange(newData) {
+    setAddingData(newData)
+    setSaveStatus('saving')
   }
 
   async function handleSaveAdding() {
@@ -71,13 +120,37 @@ export default function TreatmentLog({ hideFirst = false }) {
     setAddingLoading(true)
     setAddingError('')
     try {
-      await addTreatment({ ...addingData, isInfo: addingIsInfo })
+      let currentId = addingData.id
+      if (!currentId) {
+        const { v4: uuidv4 } = await import('uuid')
+        currentId = uuidv4()
+      }
+      const dataToSave = { ...addingData, id: currentId, isInfo: addingIsInfo }
+      if (!addingData.id) {
+        await addTreatment(dataToSave)
+      } else {
+        await updateTreatment(currentId, dataToSave)
+      }
       setIsAdding(false)
     } catch {
       setAddingError('שגיאה בשמירה, נסה שוב')
     } finally {
       setAddingLoading(false)
     }
+  }
+
+  async function handleCancelAdding() {
+    if (addingData.id) {
+      setAddingLoading(true)
+      try {
+        await deleteTreatment(addingData.id)
+      } catch (err) {
+        console.error('Failed to delete draft:', err)
+      } finally {
+        setAddingLoading(false)
+      }
+    }
+    setIsAdding(false)
   }
 
   const visibleTreatments = hideFirst && treatments.length > 0
@@ -118,13 +191,20 @@ export default function TreatmentLog({ hideFirst = false }) {
                 {addingIsInfo ? 'הוספת מידע נוסף' : `הוספת טיפול חדש (טיפול ${treatments.filter(x => !x.isInfo).length + 1})`}
               </span>
             </div>
-            <TreatmentEntryForm data={addingData} onChange={setAddingData} isInfo={addingIsInfo} />
+            <TreatmentEntryForm data={addingData} onChange={handleAddingDataChange} isInfo={addingIsInfo} />
             {addingError && <p className="text-sm text-red-600">{addingError}</p>}
-            <div className="flex gap-2 justify-end pt-2 border-t border-slate-100">
+            <div className="flex gap-2 items-center justify-end pt-2 border-t border-slate-100 w-full">
+              {saveStatus !== 'idle' && (
+                <span className="ml-auto text-xs text-slate-400 font-medium flex items-center gap-1">
+                  {saveStatus === 'saving' && '🔄 שומר אוטומטית...'}
+                  {saveStatus === 'saved' && '✨ כל השינויים נשמרו'}
+                  {saveStatus === 'error' && '⚠️ שגיאה בשמירה האוטומטית'}
+                </span>
+              )}
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => setIsAdding(false)}
+                onClick={handleCancelAdding}
                 disabled={addingLoading}
               >
                 ביטול
@@ -134,7 +214,7 @@ export default function TreatmentLog({ hideFirst = false }) {
                 onClick={handleSaveAdding}
                 disabled={addingLoading}
               >
-                {addingLoading ? 'שומר...' : (addingIsInfo ? 'שמור' : 'שמור טיפול')}
+                {addingLoading ? 'שומר...' : (addingIsInfo ? 'סיום' : 'סיום')}
               </Button>
             </div>
           </div>

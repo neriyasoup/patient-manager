@@ -62,7 +62,7 @@ export const useTreatmentStore = create((set, get) => ({
 
   async addTreatment(data) {
     const { uid, patientId } = get()
-    const id = uuidv4()
+    const id = data.id || uuidv4()
     const now = new Date().toISOString()
     const entry = { ...data, id, patientId, files: data.files ?? [], createdAt: now, updatedAt: now }
     await setDoc(doc(db, `users/${uid}/patients/${patientId}/treatments/${id}`), entry)
@@ -70,7 +70,7 @@ export const useTreatmentStore = create((set, get) => ({
     // Add to allTreatments cache
     const entryWithPath = { ...entry, _path: `users/${uid}/patients/${patientId}/treatments/${id}` }
     set(s => ({
-      allTreatments: [...s.allTreatments, entryWithPath]
+      allTreatments: [...s.allTreatments.filter(t => t.id !== id), entryWithPath]
     }))
 
     return id

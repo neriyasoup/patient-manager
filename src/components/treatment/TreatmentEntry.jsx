@@ -97,7 +97,9 @@ export default function TreatmentEntry({ entry, index, compact = false }) {
         </div>
       )}
 
-      <TreatmentModal open={editOpen} onClose={() => setEditOpen(false)} existing={entry} treatmentNumber={index} isInfo={entry.isInfo} />
+      {editOpen && (
+        <TreatmentModal open={editOpen} onClose={() => setEditOpen(false)} existing={entry} treatmentNumber={index} isInfo={entry.isInfo} />
+      )}
       <ConfirmDialog
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
