@@ -44,7 +44,7 @@ export default function GeneralFiles({ patient }) {
       {uploading && <p className="text-xs text-slate-500">מעלה...</p>}
       {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
       {patient.generalFiles?.length > 0 && (
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {patient.generalFiles.map(f => (
             <FileCard key={f.id} file={f} onDelete={handleDelete} onRename={handleRename} />
           ))}
