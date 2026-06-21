@@ -8,13 +8,11 @@ export const useUIStore = create(
       listQuery: '',
       globalQuery: '',
       globalSearchType: 'patient',
-      isTreatmentFormDirty: false,
 
       selectPatient: (id) => set({ selectedPatientId: id, globalQuery: '' }),
       setListQuery: (q) => set({ listQuery: q }),
       setGlobalQuery: (q) => set({ globalQuery: q }),
       setGlobalSearchType: (type) => set({ globalSearchType: type }),
-      setTreatmentFormDirty: (dirty) => set({ isTreatmentFormDirty: dirty }),
     }),
     {
       name: 'clinic-ui',

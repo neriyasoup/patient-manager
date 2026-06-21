@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useTreatmentStore } from '../../store/useTreatmentStore'
-import { useUIStore } from '../../store/useUIStore'
 import TreatmentEntry from './TreatmentEntry'
 import TreatmentEntryForm, { emptyEntry } from './TreatmentEntryForm'
 import Button from '../ui/Button'
@@ -30,34 +29,7 @@ export default function TreatmentLog({ hideFirst = false }) {
   const [addingLoading, setAddingLoading] = useState(false)
   const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved' | 'error'
 
-  const isDirty = isAdding && (
-    (addingData.notes && addingData.notes.trim() !== '') ||
-    (addingData.mainComplaint && addingData.mainComplaint.trim() !== '') ||
-    (addingData.secondaryComplaint && addingData.secondaryComplaint.trim() !== '') ||
-    (addingData.selectedPoints && addingData.selectedPoints.trim() !== '') ||
-    (addingData.files && addingData.files.length > 0)
-  )
 
-  const setTreatmentFormDirty = useUIStore(s => s.setTreatmentFormDirty)
-
-  useEffect(() => {
-    setTreatmentFormDirty(isDirty)
-    return () => {
-      setTreatmentFormDirty(false)
-    }
-  }, [isDirty, setTreatmentFormDirty])
-
-  useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (isDirty) {
-        e.preventDefault()
-        e.returnValue = ''
-        return ''
-      }
-    }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [isDirty])
 
   // Debounced autosave
   useEffect(() => {
