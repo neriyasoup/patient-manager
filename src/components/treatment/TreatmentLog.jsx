@@ -4,6 +4,7 @@ import TreatmentEntry from './TreatmentEntry'
 import TreatmentEntryForm, { emptyEntry } from './TreatmentEntryForm'
 import Button from '../ui/Button'
 import EmptyState from '../ui/EmptyState'
+import GeneralFiles from '../files/GeneralFiles'
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
@@ -15,7 +16,7 @@ function formatDate(dateStr) {
   return dateStr
 }
 
-export default function TreatmentLog({ hideFirst = false }) {
+export default function TreatmentLog({ patient, hideFirst = false }) {
   const treatments = useTreatmentStore(s => s.treatments)
   const loading = useTreatmentStore(s => s.loading)
   const addTreatment = useTreatmentStore(s => s.addTreatment)
@@ -221,32 +222,38 @@ export default function TreatmentLog({ hideFirst = false }) {
         </div>
       </div>
 
-      {/* Left Column: Recent Treatment Points */}
-      <div className="w-full lg:w-72 shrink-0 bg-slate-50 p-4 rounded-xl border border-slate-200/60 flex flex-col gap-3 mt-0 lg:mt-9">
-        <h4 className="font-bold text-slate-700 text-xs flex items-center gap-1.5 border-b border-slate-200 pb-2">
-          📍 10 נקודות טיפול אחרונות
-        </h4>
-        {recentPoints.length === 0 ? (
-          <p className="text-xs text-slate-400 text-center py-4">אין נקודות טיפול מתועדות</p>
-        ) : (
-          <div className="flex flex-col gap-2.5 max-h-[500px] overflow-y-auto pr-1">
-            {recentPoints.map((t) => {
-              const originalIndex = treatmentsOnly.findIndex(orig => orig.id === t.id)
-              const index = originalIndex !== -1 ? treatmentsOnly.length - originalIndex : null
-              return (
-                <div key={t.id} className="flex flex-col gap-1 bg-white p-2.5 rounded-lg border border-slate-100 shadow-sm text-xs hover:border-teal-200 transition-colors">
-                  <div className="flex justify-between items-center text-[10px] text-slate-500 font-semibold">
-                    <span className="text-teal-700">טיפול {index}</span>
-                    <span>{formatDate(t.date)}</span>
+      {/* Left Column: Recent Treatment Points & General Files */}
+      <div className="w-full lg:w-72 shrink-0 flex flex-col gap-6 mt-0 lg:mt-9">
+        {/* 10 Last Points Box */}
+        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 flex flex-col gap-3">
+          <h4 className="font-bold text-slate-700 text-xs flex items-center gap-1.5 border-b border-slate-200 pb-2">
+            📍 10 נקודות טיפול אחרונות
+          </h4>
+          {recentPoints.length === 0 ? (
+            <p className="text-xs text-slate-400 text-center py-4">אין נקודות טיפול מתועדות</p>
+          ) : (
+            <div className="flex flex-col gap-2.5 max-h-[500px] overflow-y-auto pr-1">
+              {recentPoints.map((t) => {
+                const originalIndex = treatmentsOnly.findIndex(orig => orig.id === t.id)
+                const index = originalIndex !== -1 ? treatmentsOnly.length - originalIndex : null
+                return (
+                  <div key={t.id} className="flex flex-col gap-1 bg-white p-2.5 rounded-lg border border-slate-100 shadow-sm text-xs hover:border-teal-200 transition-colors">
+                    <div className="flex justify-between items-center text-[10px] text-slate-500 font-semibold">
+                      <span className="text-teal-700">טיפול {index}</span>
+                      <span>{formatDate(t.date)}</span>
+                    </div>
+                    <p className="text-slate-800 font-semibold whitespace-pre-wrap mt-0.5 leading-relaxed">
+                      {t.selectedPoints}
+                    </p>
                   </div>
-                  <p className="text-slate-800 font-semibold whitespace-pre-wrap mt-0.5 leading-relaxed">
-                    {t.selectedPoints}
-                  </p>
-                </div>
-              )
-            })}
-          </div>
-        )}
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* General Files */}
+        {patient && <GeneralFiles patient={patient} />}
       </div>
     </div>
   )

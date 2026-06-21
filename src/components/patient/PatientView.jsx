@@ -5,7 +5,6 @@ import { useUIStore } from '../../store/useUIStore'
 import PatientHeader from './PatientHeader'
 import TreatmentLog from '../treatment/TreatmentLog'
 import TreatmentEntry from '../treatment/TreatmentEntry'
-import GeneralFiles from '../files/GeneralFiles'
 import EmptyState from '../ui/EmptyState'
 import Button from '../ui/Button'
 import NewPatientModal from './NewPatientModal'
@@ -67,37 +66,31 @@ export default function PatientView() {
 
   return (
     <div className="flex flex-row h-full overflow-hidden">
-      {/* Right column: First Treatment (Intake/Initial) & General Files */}
-      <div
-        style={{ width: `${sidebarWidth}px` }}
-        className={`shrink-0 border-l border-slate-200 bg-slate-50/50 p-6 overflow-y-auto flex flex-col gap-6 relative ${
-          isResizing ? 'select-none' : ''
-        }`}
-      >
-        {/* Resize handle draggable area */}
+      {/* Right column: First Treatment (Intake/Initial) */}
+      {hasFirstTreatment && firstTreatment && (
         <div
-          onMouseDown={startResizing}
-          className={`absolute top-0 bottom-0 left-0 w-1.5 cursor-col-resize select-none transition-colors z-30 ${
-            isResizing ? 'bg-teal-500' : 'bg-transparent hover:bg-slate-300'
+          style={{ width: `${sidebarWidth}px` }}
+          className={`shrink-0 border-l border-slate-200 bg-slate-50/50 p-6 overflow-y-auto flex flex-col gap-4 relative ${
+            isResizing ? 'select-none' : ''
           }`}
-        />
-        
-        {hasFirstTreatment && firstTreatment && (
-          <div className="flex flex-col gap-3">
-            <h3 className="font-bold text-slate-700 text-sm">טיפול 1 (אבחון ראשוני)</h3>
-            <TreatmentEntry entry={firstTreatment} index={1} compact={true} />
-            <hr className="border-slate-200/80 my-2" />
-          </div>
-        )}
-
-        <GeneralFiles patient={patient} />
-      </div>
+        >
+          {/* Resize handle draggable area */}
+          <div
+            onMouseDown={startResizing}
+            className={`absolute top-0 bottom-0 left-0 w-1.5 cursor-col-resize select-none transition-colors z-30 ${
+              isResizing ? 'bg-teal-500' : 'bg-transparent hover:bg-slate-300'
+            }`}
+          />
+          <h3 className="font-bold text-slate-700 text-sm">טיפול 1 (אבחון ראשוני)</h3>
+          <TreatmentEntry entry={firstTreatment} index={1} compact={true} />
+        </div>
+      )}
 
       {/* Left Column: Patient details & log */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         <PatientHeader patient={patient} />
         <div className="flex-1 p-6 overflow-y-auto flex flex-col gap-8 bg-white">
-          <TreatmentLog patientId={patient.id} hideFirst={hasFirstTreatment} />
+          <TreatmentLog patient={patient} hideFirst={hasFirstTreatment} />
         </div>
       </div>
     </div>
