@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import ConfirmDialog from '../ui/ConfirmDialog'
+import { resolveFileUrl } from '../../utils/storage'
 
 const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg']
 
@@ -15,16 +16,67 @@ function splitName(name) {
     : { base: name, ext: '' }
 }
 
+function dataUrlToBlobUrl(dataUrl) {
+  const [header, base64] = dataUrl.split(',')
+  const mime = header.match(/:(.*?);/)?.[1] || 'application/octet-stream'
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  const blob = new Blob([bytes], { type: mime })
+  return URL.createObjectURL(blob)
+}
+
 export default function FileCard({ file, onDelete, onRename }) {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [newName, setNewName] = useState('')
+  const [resolvedUrl, setResolvedUrl] = useState(() =>
+    file.url?.startsWith('firestore:') ? '' : file.url
+  )
   const inputRef = useRef(null)
+
+  useEffect(() => {
+    let active = true
+    if (file.url?.startsWith('firestore:')) {
+      resolveFileUrl(file.url).then(u => {
+        if (active) setResolvedUrl(u)
+      })
+    } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setResolvedUrl(file.url)
+    }
+    return () => { active = false }
+  }, [file.url])
 
   useEffect(() => {
     if (renaming) inputRef.current?.focus()
   }, [renaming])
+
+  async function handleOpenFile(e) {
+    if (!resolvedUrl && file.url?.startsWith('firestore:')) {
+      e.preventDefault()
+      const u = await resolveFileUrl(file.url)
+      setResolvedUrl(u)
+      if (u.startsWith('data:')) {
+        window.open(dataUrlToBlobUrl(u), '_blank', 'noopener,noreferrer')
+      } else if (u) {
+        window.open(u, '_blank', 'noopener,noreferrer')
+      }
+      return
+    }
+    if (resolvedUrl?.startsWith('data:')) {
+      e.preventDefault()
+      try {
+        const blobUrl = dataUrlToBlobUrl(resolvedUrl)
+        window.open(blobUrl, '_blank', 'noopener,noreferrer')
+      } catch (err) {
+        console.error('Error opening file:', err)
+      }
+    }
+  }
 
   async function handleDelete() {
     setLoading(true)
@@ -54,9 +106,9 @@ export default function FileCard({ file, onDelete, onRename }) {
 
   return (
     <div className="group relative rounded-lg border border-slate-200 overflow-hidden bg-white hover:border-teal-300 transition-colors">
-      <a href={file.url} target="_blank" rel="noreferrer" className="block">
-        {isImage(file.name) ? (
-          <img src={file.url} alt={file.name} className="w-full h-20 object-cover" />
+      <a href={resolvedUrl || '#'} target="_blank" rel="noreferrer" onClick={handleOpenFile} className="block">
+        {isImage(file.name) && resolvedUrl ? (
+          <img src={resolvedUrl} alt={file.name} className="w-full h-20 object-cover" />
         ) : (
           <div className="w-full h-20 flex items-center justify-center bg-slate-50 text-3xl">
             📄

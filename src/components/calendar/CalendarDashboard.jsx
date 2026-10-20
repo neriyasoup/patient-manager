@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react'
+import { doc, setDoc } from 'firebase/firestore'
+import { v4 as uuidv4 } from 'uuid'
+import { db } from '../../firebase'
 import { useCalendarStore } from '../../store/useCalendarStore'
 import { useAuthStore } from '../../store/useAuthStore'
 import { usePatientStore } from '../../store/usePatientStore'
 import { useUIStore } from '../../store/useUIStore'
+import { searchPatients } from '../../utils/searchIndex'
 import NewPatientModal from '../patient/NewPatientModal'
 import Button from '../ui/Button'
+import Input from '../ui/Input'
 import Modal from '../ui/Modal'
 
 // SVG Icons
@@ -31,6 +36,27 @@ const SmsIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
   </svg>
 )
+
+const DEFAULT_WA_TEMPLATE = 'היי {name}, תזכורת לטיפול שנקבע לנו בתאריך {date} בשעה {time}. אשמח לאישור הגעה 🙏'
+
+const formatShortDate = (dateStr) => {
+  if (!dateStr) return ''
+  const parts = dateStr.split('-')
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`
+  }
+  return dateStr
+}
+
+const buildWaReminderUrl = (phone, template, { name, date, time }) => {
+  const cleaned = cleanPhoneForWa(phone)
+  if (!cleaned) return '#'
+  const msg = (template || DEFAULT_WA_TEMPLATE)
+    .replace(/\{name\}/g, name || '')
+    .replace(/\{date\}/g, date || '')
+    .replace(/\{time\}/g, time || '')
+  return `https://wa.me/${cleaned}?text=${encodeURIComponent(msg)}`
+}
 
 // Helper functions for timing and cleanup
 const formatEventTime = (dateTimeStr) => {
@@ -100,7 +126,6 @@ const matchPatient = (eventTitle, patients) => {
 
 const parseEventName = (summary) => {
   if (!summary) return { firstName: '', lastName: '' }
-  // Remove numbers, times, and common terms
   let clean = summary.replace(/[-\d]/g, '').trim()
   clean = clean.replace(/\b(דיקור|טיקור|טיפול|אבחון|פגישה|חוזר|ראשון|סשן|קליניקה|מפגש)\b/gi, '').trim()
   
@@ -182,14 +207,44 @@ export default function CalendarDashboard() {
   const loading = useCalendarStore(s => s.loading)
   const error = useCalendarStore(s => s.error)
   const fetchEvents = useCalendarStore(s => s.fetchEvents)
+  const createEvent = useCalendarStore(s => s.createEvent)
   const matches = useCalendarStore(s => s.matches)
   const matchEvent = useCalendarStore(s => s.matchEvent)
 
   const patients = usePatientStore(s => s.patients)
   const selectPatient = useUIStore(s => s.selectPatient)
 
+  // View Mode: 'daily' | 'gcal'
+  const [calendarViewMode, setCalendarViewMode] = useState('daily')
+  const [gcalEmbedMode, setGcalEmbedMode] = useState('WEEK') // 'WEEK' | 'MONTH' | 'AGENDA'
+
   const [newPatientOpen, setNewPatientOpen] = useState(false)
   const [prefilledData, setPrefilledData] = useState(null)
+
+  // Add Treatment / Appointment Modal State
+  const [addEventOpen, setAddEventOpen] = useState(false)
+  const [addEventPatientQuery, setAddEventPatientQuery] = useState('')
+  const [addEventPatientId, setAddEventPatientId] = useState('')
+  const [addEventCustomTitle, setAddEventCustomTitle] = useState('')
+  const [addEventDate, setAddEventDate] = useState(selectedDate)
+  const [addEventStartTime, setAddEventStartTime] = useState('10:00')
+  const [addEventEndTime, setAddEventEndTime] = useState('11:00')
+  const [addEventNotes, setAddEventNotes] = useState('')
+  const [addEventCreateTreatment, setAddEventCreateTreatment] = useState(true)
+  const [addEventUseSubCal, setAddEventUseSubCal] = useState(false)
+  const [addEventLoading, setAddEventLoading] = useState(false)
+  const [addEventError, setAddEventError] = useState('')
+
+  // WhatsApp Reminders Modal State
+  const [waModalOpen, setWaModalOpen] = useState(false)
+  const [waTemplate, setWaTemplate] = useState(() =>
+    localStorage.getItem('wa_reminder_template') || DEFAULT_WA_TEMPLATE
+  )
+
+  function handleWaTemplateChange(val) {
+    setWaTemplate(val)
+    localStorage.setItem('wa_reminder_template', val)
+  }
 
   // Match Modal State
   const [matchModalOpen, setMatchModalOpen] = useState(false)
@@ -221,13 +276,99 @@ export default function CalendarDashboard() {
     }
   }
 
+  const handleOpenAddEvent = () => {
+    setAddEventDate(selectedDate)
+    setAddEventStartTime('10:00')
+    setAddEventEndTime('11:00')
+    setAddEventPatientQuery('')
+    setAddEventPatientId('')
+    setAddEventCustomTitle('')
+    setAddEventNotes('')
+    setAddEventCreateTreatment(true)
+    setAddEventError('')
+    setAddEventOpen(true)
+  }
+
+  const handleStartTimeChange = (newStart) => {
+    setAddEventStartTime(newStart)
+    if (/^\d{2}:\d{2}$/.test(newStart)) {
+      const [h, m] = newStart.split(':').map(Number)
+      const endH = String((h + 1) % 24).padStart(2, '0')
+      setAddEventEndTime(`${endH}:${String(m).padStart(2, '0')}`)
+    }
+  }
+
+  const handleSaveNewEvent = async () => {
+    const chosenPatient = patients.find(p => p.id === addEventPatientId)
+    const summary = chosenPatient
+      ? `${chosenPatient.firstName} ${chosenPatient.lastName}`
+      : addEventCustomTitle.trim()
+
+    if (!summary) {
+      setAddEventError('בחר מטופל מהרשימה או הקלד כותרת לפגישה')
+      return
+    }
+    if (!addEventDate || !addEventStartTime || !addEventEndTime) {
+      setAddEventError('נא למלא תאריך, שעת התחלה ושעת סיום')
+      return
+    }
+
+    setAddEventLoading(true)
+    setAddEventError('')
+    try {
+      let token = googleToken
+      if (!token) {
+        token = await refreshGoogleToken()
+      }
+      const created = await createEvent(token, {
+        summary,
+        description: addEventNotes,
+        date: addEventDate,
+        startTime: addEventStartTime,
+        endTime: addEventEndTime,
+        useSubCalendar: addEventUseSubCal,
+      })
+
+      if (chosenPatient && uid) {
+        if (created?.id) {
+          await matchEvent(uid, created.id, chosenPatient.id)
+        }
+        if (addEventCreateTreatment) {
+          const treatmentId = uuidv4()
+          const now = new Date().toISOString()
+          await setDoc(doc(db, `users/${uid}/patients/${chosenPatient.id}/treatments/${treatmentId}`), {
+            id: treatmentId,
+            patientId: chosenPatient.id,
+            date: addEventDate,
+            time: addEventStartTime,
+            notes: addEventNotes || '',
+            mainComplaint: '',
+            secondaryComplaint: '',
+            selectedPoints: '',
+            files: [],
+            isInfo: false,
+            createdAt: now,
+            updatedAt: now,
+          })
+        }
+      }
+
+      setSelectedDate(addEventDate)
+      setAddEventOpen(false)
+    } catch (err) {
+      setAddEventError(err.message || 'שגיאה בשמירת האירוע ביומן גוגל')
+    } finally {
+      setAddEventLoading(false)
+    }
+  }
+
   const filteredPatients = searchQuery.trim() === ''
     ? patients
-    : patients.filter(p => {
-        const fullName = `${p.firstName} ${p.lastName}`.toLowerCase()
-        const query = searchQuery.toLowerCase()
-        return fullName.includes(query) || (p.phone && p.phone.includes(query))
-      })
+    : searchPatients(patients, searchQuery)
+
+  const addEventFilteredPatients = addEventPatientQuery.trim() === ''
+    ? patients
+    : searchPatients(patients, addEventPatientQuery)
 
   const [viewDate, setViewDate] = useState(() => new Date(`${selectedDate}T12:00:00`))
 
@@ -267,6 +408,18 @@ export default function CalendarDashboard() {
     setNewPatientOpen(true)
   }
 
+  const matchedAppointmentsToday = events
+    .map(event => {
+      const matched = matches[event.id]
+        ? patients.find(p => p.id === matches[event.id])
+        : matchPatient(event.summary, patients)
+      if (!matched || !matched.phone) return null
+      const allDay = !event.start?.dateTime
+      const startTime = allDay ? '' : formatEventTime(event.start.dateTime)
+      return { event, patient: matched, startTime }
+    })
+    .filter(Boolean)
+
   const renderContent = () => {
     if (!googleToken) {
       return (
@@ -276,7 +429,7 @@ export default function CalendarDashboard() {
           </div>
           <h3 className="text-xl font-bold text-slate-800 mb-2">חיבור יומן גוגל</h3>
           <p className="text-sm text-slate-500 mb-6 max-w-xs leading-relaxed">
-            חבר את יומן גוגל שלך על מנת לצפות בפגישות היומיות, לזהות מטופלים רשומים ולראות את סטטוס התשלומים שלהם ישירות בדף הבית.
+            חבר את יומן גוגל שלך על מנת לצפות בפגישות היומיות, להוסיף טיפולים ישירות ליומן גוגל ולשלוח תזכורות WhatsApp למטופלים.
           </p>
           <Button onClick={handleConnect} variant="primary" size="md" className="px-6 py-2 bg-teal-600 hover:bg-teal-700">
             התחבר עם Google Calendar
@@ -318,15 +471,18 @@ export default function CalendarDashboard() {
             🌿
           </div>
           <h3 className="text-base font-bold text-slate-700 mb-1">אין פגישות מתוזמנות</h3>
-          <p className="text-sm text-slate-400 max-w-xs leading-relaxed">
+          <p className="text-sm text-slate-400 max-w-xs leading-relaxed mb-4">
             לא נמצאו פגישות ביומן עבור תאריך זה.
           </p>
+          <Button onClick={handleOpenAddEvent} size="sm">
+            + הוסף טיפול ליומן גוגל
+          </Button>
         </div>
       )
     }
 
     return (
-      <div className="flex flex-col gap-4 mt-6 max-w-3xl mx-auto">
+      <div className="flex flex-col gap-4 mt-2 max-w-3xl mx-auto">
         {events.map((event) => {
           const matched = matches[event.id]
             ? patients.find(p => p.id === matches[event.id])
@@ -408,19 +564,24 @@ export default function CalendarDashboard() {
                 </div>
 
                 {/* Quick Action Buttons */}
-                <div className="flex gap-2 shrink-0 items-center">
+                <div className="flex gap-2 shrink-0 items-center flex-wrap">
                   {matched ? (
                     <>
                       {matched.phone && (
                         <>
                           <a
-                            href={`https://wa.me/${cleanPhoneForWa(matched.phone)}`}
+                            href={buildWaReminderUrl(matched.phone, waTemplate, {
+                              name: matched.firstName,
+                              date: formatShortDate(selectedDate),
+                              time: startTime || 'הנקבעת',
+                            })}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-1 bg-green-50 hover:bg-green-100 text-green-700 font-semibold py-1 px-3 border border-green-200 rounded-lg text-xs transition-colors shadow-sm"
+                            title="שלח תזכורת מתוזמנת ב-WhatsApp"
                           >
                             <WhatsAppIcon />
-                            <span>WhatsApp</span>
+                            <span>תזכורת WhatsApp</span>
                           </a>
                           <a
                             href={`sms:${matched.phone}`}
@@ -451,124 +612,224 @@ export default function CalendarDashboard() {
     )
   }
 
+  const gcalDatesParam = selectedDate.replace(/-/g, '')
+  const gcalEmbedUrl = user?.email
+    ? `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(user.email)}&ctz=Asia/Jerusalem&mode=${gcalEmbedMode}&dates=${gcalDatesParam}/${gcalDatesParam}&hl=iw&showTitle=0&showPrint=0&showCalendars=1`
+    : null
+
   return (
     <div className="flex-1 bg-slate-50/50 p-6 overflow-y-auto w-full" dir="rtl">
       <div className="max-w-6xl mx-auto flex flex-col gap-6">
         
         {/* Header Section */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">📅</span>
-            <div>
-              <h2 className="text-xl font-extrabold text-slate-800">לוח פגישות יומי</h2>
-              <p className="text-xs text-slate-500 mt-0.5">{formatHebrewDate(selectedDate)}</p>
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">📅</span>
+              <div>
+                <h2 className="text-xl font-extrabold text-slate-800">יומן פגישות וטיפולים</h2>
+                <p className="text-xs text-slate-500 mt-0.5">{formatHebrewDate(selectedDate)}</p>
+              </div>
+            </div>
+
+            {/* Action Buttons: Add Treatment to Google Calendar, WhatsApp Reminders, View Toggle */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                size="sm"
+                onClick={handleOpenAddEvent}
+                className="bg-teal-600 hover:bg-teal-700 text-white font-semibold shadow-xs"
+              >
+                + הוסף טיפול ליומן גוגל
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setWaModalOpen(true)}
+                className="border-green-300 bg-green-50 text-green-800 hover:bg-green-100 font-semibold"
+              >
+                <WhatsAppIcon />
+                <span>תזכורות WhatsApp ({matchedAppointmentsToday.length})</span>
+              </Button>
+              <div className="flex items-center rounded-lg border border-slate-300 overflow-hidden bg-slate-100 p-0.5 text-xs font-semibold">
+                <button
+                  onClick={() => setCalendarViewMode('daily')}
+                  className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
+                    calendarViewMode === 'daily'
+                      ? 'bg-white text-teal-700 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  📋 תצוגת פגישות
+                </button>
+                <button
+                  onClick={() => setCalendarViewMode('gcal')}
+                  className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
+                    calendarViewMode === 'gcal'
+                      ? 'bg-white text-teal-700 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  📆 יומן גוגל מלא
+                </button>
+              </div>
             </div>
           </div>
           
-          {/* Controls */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
-              className="text-slate-600 border-slate-300 hover:bg-slate-50"
-            >
-              היום
-            </Button>
-            <div className="flex items-center rounded-lg border border-slate-300 overflow-hidden bg-white shadow-sm">
-              <button
-                onClick={() => changeDate(-1)}
-                className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 border-l border-slate-300 font-bold text-sm focus:outline-none transition-colors"
-                title="יום קודם"
+          {/* Date Navigation Bar */}
+          <div className="flex items-center justify-between gap-2 flex-wrap border-t border-slate-100 pt-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+                className="text-slate-600 border-slate-300 hover:bg-slate-50"
               >
-                ▶ יום קודם
-              </button>
-              <button
-                onClick={() => changeDate(1)}
-                className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-sm focus:outline-none transition-colors"
-                title="יום הבא"
-              >
-                יום הבא ◀
-              </button>
-            </div>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 shadow-sm"
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Right column: Clickable Month Calendar */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm w-full lg:w-[310px] shrink-0 self-start flex flex-col gap-4">
-            {/* Calendar Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <button
-                onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}
-                className="px-2 py-1 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors focus:outline-none cursor-pointer text-xs font-bold flex items-center gap-1"
-                title="חודש קודם"
-              >
-                <span>▶</span>
-                <span>אחורה</span>
-              </button>
-              <span className="font-extrabold text-slate-800 text-sm">{viewMonthLabel}</span>
-              <button
-                onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}
-                className="px-2 py-1 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors focus:outline-none cursor-pointer text-xs font-bold flex items-center gap-1"
-                title="חודש הבא"
-              >
-                <span>קדימה</span>
-                <span>◀</span>
-              </button>
+                היום
+              </Button>
+              <div className="flex items-center rounded-lg border border-slate-300 overflow-hidden bg-white shadow-sm">
+                <button
+                  onClick={() => changeDate(-1)}
+                  className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 border-l border-slate-300 font-bold text-sm focus:outline-none transition-colors cursor-pointer"
+                  title="יום קודם"
+                >
+                  ▶ יום קודם
+                </button>
+                <button
+                  onClick={() => changeDate(1)}
+                  className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-sm focus:outline-none transition-colors cursor-pointer"
+                  title="יום הבא"
+                >
+                  יום הבא ◀
+                </button>
+              </div>
+              <div className="w-40">
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+                />
+              </div>
             </div>
 
-            {/* Days of Week Header */}
-            <div className="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400">
-              <div>א'</div>
-              <div>ב'</div>
-              <div>ג'</div>
-              <div>ד'</div>
-              <div>ה'</div>
-              <div>ו'</div>
-              <div>ש'</div>
-            </div>
-
-            {/* Days Grid */}
-            <div className="grid grid-cols-7 gap-y-1.5 justify-items-center">
-              {getMonthDays(viewDate).map((cell, idx) => {
-                const isSelected = cell.dateStr === selectedDate
-                const isCurrentMonth = cell.isCurrentMonth
-                const todayStr = new Date().toISOString().split('T')[0]
-                const isToday = cell.dateStr === todayStr
-
-                return (
+            {calendarViewMode === 'gcal' && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-500">תצוגה:</span>
+                {[
+                  { key: 'WEEK', label: 'שבוע' },
+                  { key: 'MONTH', label: 'חודש' },
+                  { key: 'AGENDA', label: 'לו"ז' },
+                ].map(m => (
                   <button
-                    key={`${cell.dateStr}-${idx}`}
-                    onClick={() => setSelectedDate(cell.dateStr)}
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all focus:outline-none cursor-pointer ${
-                      isSelected
-                        ? 'bg-teal-600 text-white shadow-sm hover:bg-teal-700 scale-105'
-                        : isToday
-                        ? 'border border-teal-500 text-teal-600 hover:bg-teal-50 font-bold'
-                        : isCurrentMonth
-                        ? 'text-slate-700 hover:bg-slate-100'
-                        : 'text-slate-300 hover:bg-slate-50'
+                    key={m.key}
+                    onClick={() => setGcalEmbedMode(m.key)}
+                    className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer ${
+                      gcalEmbedMode === m.key
+                        ? 'bg-teal-600 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
-                    {cell.day}
+                    {m.label}
                   </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Left column: Daily Appointments Timeline */}
-          <div className="flex-1 min-w-0">
-            {renderContent()}
+                ))}
+                <a
+                  href="https://calendar.google.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-teal-700 hover:underline mr-2 font-medium"
+                >
+                  פתח ב-Google Calendar ↗
+                </a>
+              </div>
+            )}
           </div>
         </div>
+
+        {calendarViewMode === 'gcal' ? (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+            {gcalEmbedUrl ? (
+              <iframe
+                key={`${gcalEmbedMode}-${selectedDate}`}
+                src={gcalEmbedUrl}
+                title="Google Calendar"
+                className="w-full h-[680px] border-0"
+              />
+            ) : (
+              <div className="p-12 text-center text-sm text-slate-500">
+                התחבר עם חשבון Google כדי להציג את יומן גוגל.
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* Right column: Clickable Month Calendar */}
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm w-full lg:w-[310px] shrink-0 self-start flex flex-col gap-4">
+              {/* Calendar Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <button
+                  onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}
+                  className="px-2 py-1 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors focus:outline-none cursor-pointer text-xs font-bold flex items-center gap-1"
+                  title="חודש קודם"
+                >
+                  <span>▶</span>
+                  <span>אחורה</span>
+                </button>
+                <span className="font-extrabold text-slate-800 text-sm">{viewMonthLabel}</span>
+                <button
+                  onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}
+                  className="px-2 py-1 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors focus:outline-none cursor-pointer text-xs font-bold flex items-center gap-1"
+                  title="חודש הבא"
+                >
+                  <span>קדימה</span>
+                  <span>◀</span>
+                </button>
+              </div>
+
+              {/* Days of Week Header */}
+              <div className="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400">
+                <div>א'</div>
+                <div>ב'</div>
+                <div>ג'</div>
+                <div>ד'</div>
+                <div>ה'</div>
+                <div>ו'</div>
+                <div>ש'</div>
+              </div>
+
+              {/* Days Grid */}
+              <div className="grid grid-cols-7 gap-y-1.5 justify-items-center">
+                {getMonthDays(viewDate).map((cell, idx) => {
+                  const isSelected = cell.dateStr === selectedDate
+                  const isCurrentMonth = cell.isCurrentMonth
+                  const todayStr = new Date().toISOString().split('T')[0]
+                  const isToday = cell.dateStr === todayStr
+
+                  return (
+                    <button
+                      key={`${cell.dateStr}-${idx}`}
+                      onClick={() => setSelectedDate(cell.dateStr)}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all focus:outline-none cursor-pointer ${
+                        isSelected
+                          ? 'bg-teal-600 text-white shadow-sm hover:bg-teal-700 scale-105'
+                          : isToday
+                          ? 'border border-teal-500 text-teal-600 hover:bg-teal-50 font-bold'
+                          : isCurrentMonth
+                          ? 'text-slate-700 hover:bg-slate-100'
+                          : 'text-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      {cell.day}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Left column: Daily Appointments Timeline */}
+            <div className="flex-1 min-w-0">
+              {renderContent()}
+            </div>
+          </div>
+        )}
 
       </div>
 
@@ -580,6 +841,186 @@ export default function CalendarDashboard() {
         }}
         initialData={prefilledData}
       />
+
+      {/* Add Treatment / Appointment to Google Calendar Modal */}
+      <Modal
+        open={addEventOpen}
+        onClose={() => setAddEventOpen(false)}
+        title="הוספת טיפול ליומן גוגל"
+        maxWidth="max-w-md"
+      >
+        <div className="flex flex-col gap-3 text-right" dir="rtl">
+          <div>
+            <label className="text-xs font-semibold text-slate-600 block mb-1">בחר מטופל רשום:</label>
+            <input
+              type="text"
+              value={addEventPatientQuery}
+              onChange={e => setAddEventPatientQuery(e.target.value)}
+              placeholder="הקלד שם מטופל לחיפוש..."
+              className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 bg-white mb-1.5"
+            />
+            <div className="border border-slate-200 rounded-lg max-h-36 overflow-y-auto divide-y divide-slate-100 bg-white">
+              {addEventFilteredPatients.slice(0, 20).map(p => {
+                const isSelected = addEventPatientId === p.id
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      setAddEventPatientId(isSelected ? '' : p.id)
+                    }}
+                    className={`w-full text-right px-3 py-1.5 text-xs flex items-center justify-between cursor-pointer ${
+                      isSelected ? 'bg-teal-50 text-teal-800 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <span>{p.firstName} {p.lastName} {p.phone ? `(${p.phone})` : ''}</span>
+                    {isSelected && <span className="text-teal-600 font-bold">✓</span>}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {!addEventPatientId && (
+            <Input
+              label="או כותרת חופשית לאירוע (אם המטופל טרם רשום)"
+              placeholder="למשל: יעל כהן - דיקור"
+              value={addEventCustomTitle}
+              onChange={e => setAddEventCustomTitle(e.target.value)}
+            />
+          )}
+
+          <div className="grid grid-cols-3 gap-2">
+            <Input
+              label="תאריך"
+              type="date"
+              value={addEventDate}
+              onChange={e => setAddEventDate(e.target.value)}
+            />
+            <Input
+              label="שעת התחלה"
+              type="time"
+              value={addEventStartTime}
+              onChange={e => handleStartTimeChange(e.target.value)}
+            />
+            <Input
+              label="שעת סיום"
+              type="time"
+              value={addEventEndTime}
+              onChange={e => setAddEventEndTime(e.target.value)}
+            />
+          </div>
+
+          <Input
+            label="הערות לפגישה / לטיפול"
+            placeholder="הערות שיופיעו ביומן ובתיק המטופל..."
+            value={addEventNotes}
+            onChange={e => setAddEventNotes(e.target.value)}
+          />
+
+          {addEventPatientId && (
+            <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer bg-teal-50/60 border border-teal-200 rounded-lg p-2.5">
+              <input
+                type="checkbox"
+                checked={addEventCreateTreatment}
+                onChange={e => setAddEventCreateTreatment(e.target.checked)}
+                className="rounded text-teal-600 focus:ring-teal-500"
+              />
+              <span className="font-medium">צור במקביל גם רשומת טיפול בתיק המטופל באתר</span>
+            </label>
+          )}
+
+          <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={addEventUseSubCal}
+              onChange={e => setAddEventUseSubCal(e.target.checked)}
+              className="rounded text-teal-600 focus:ring-teal-500"
+            />
+            <span>רשום ביומן המשני ("נריה ועידו") במקום ביומן הראשי</span>
+          </label>
+
+          {addEventError && <p className="text-xs text-red-600">{addEventError}</p>}
+
+          <div className="flex gap-2 justify-end pt-2 border-t border-slate-100">
+            <Button variant="secondary" size="sm" onClick={() => setAddEventOpen(false)} disabled={addEventLoading}>
+              ביטול
+            </Button>
+            <Button size="sm" onClick={handleSaveNewEvent} disabled={addEventLoading}>
+              {addEventLoading ? 'שומר בגוגל...' : 'שמירה ביומן גוגל'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* WhatsApp Reminders Modal */}
+      <Modal
+        open={waModalOpen}
+        onClose={() => setWaModalOpen(false)}
+        title={`תזכורות WhatsApp למטופלים — ${formatShortDate(selectedDate)}`}
+        maxWidth="max-w-lg"
+      >
+        <div className="flex flex-col gap-4 text-right" dir="rtl">
+          <div>
+            <label className="text-xs font-semibold text-slate-600 block mb-1">
+              תבנית הודעת התזכורת (משתנים אוטומטיים: {'{name}'}, {'{date}'}, {'{time}'}):
+            </label>
+            <textarea
+              rows={3}
+              value={waTemplate}
+              onChange={e => handleWaTemplateChange(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 p-2.5 text-xs text-slate-800 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold text-slate-600">
+              מטופלים משובצים ליום זה ({matchedAppointmentsToday.length}):
+            </span>
+            {matchedAppointmentsToday.length === 0 ? (
+              <p className="text-xs text-slate-400 bg-slate-50 rounded-lg p-4 text-center border border-slate-100">
+                אין פגישות משויכות למטופלים עם מספר טלפון בתאריך זה.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
+                {matchedAppointmentsToday.map(({ event, patient: p, startTime }) => (
+                  <div
+                    key={event.id}
+                    className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs"
+                  >
+                    <div>
+                      <span className="font-bold text-slate-800">{p.firstName} {p.lastName}</span>
+                      <span className="text-slate-400 mx-1.5">|</span>
+                      <span className="text-teal-700 font-semibold">{startTime || 'יום שלם'}</span>
+                      <span className="text-slate-400 mx-1.5">|</span>
+                      <span className="text-slate-500">{p.phone}</span>
+                    </div>
+                    <a
+                      href={buildWaReminderUrl(p.phone, waTemplate, {
+                        name: p.firstName,
+                        date: formatShortDate(selectedDate),
+                        time: startTime || '',
+                      })}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-1.5 px-3 rounded-lg text-xs transition-colors"
+                    >
+                      <WhatsAppIcon />
+                      <span>שלח תזכורת</span>
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end pt-2 border-t border-slate-100">
+            <Button variant="secondary" size="sm" onClick={() => setWaModalOpen(false)}>
+              סגור
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         open={matchModalOpen}

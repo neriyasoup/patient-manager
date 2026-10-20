@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useTreatmentStore } from '../../store/useTreatmentStore'
 import TreatmentEntry from './TreatmentEntry'
 import TreatmentEntryForm, { emptyEntry } from './TreatmentEntryForm'
 import Button from '../ui/Button'
 import EmptyState from '../ui/EmptyState'
 import GeneralFiles from '../files/GeneralFiles'
+import { deleteFile } from '../../utils/storage'
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
@@ -20,69 +21,22 @@ export default function TreatmentLog({ patient, hideFirst = false }) {
   const treatments = useTreatmentStore(s => s.treatments)
   const loading = useTreatmentStore(s => s.loading)
   const addTreatment = useTreatmentStore(s => s.addTreatment)
-  const updateTreatment = useTreatmentStore(s => s.updateTreatment)
-  const deleteTreatment = useTreatmentStore(s => s.deleteTreatment)
 
   const [isAdding, setIsAdding] = useState(false)
   const [addingIsInfo, setAddingIsInfo] = useState(false)
   const [addingData, setAddingData] = useState(emptyEntry())
   const [addingError, setAddingError] = useState('')
   const [addingLoading, setAddingLoading] = useState(false)
-  const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved' | 'error'
-
-
-
-  // Debounced autosave
-  useEffect(() => {
-    if (!isAdding) return
-
-    const hasData = (
-      (addingData.notes && addingData.notes.trim() !== '') ||
-      (addingData.mainComplaint && addingData.mainComplaint.trim() !== '') ||
-      (addingData.secondaryComplaint && addingData.secondaryComplaint.trim() !== '') ||
-      (addingData.selectedPoints && addingData.selectedPoints.trim() !== '') ||
-      (addingData.files && addingData.files.length > 0)
-    )
-    if (!hasData) return
-
-    const delayDebounceFn = setTimeout(async () => {
-      try {
-        let currentId = addingData.id
-        let isNew = false
-        if (!currentId) {
-          const { v4: uuidv4 } = await import('uuid')
-          currentId = uuidv4()
-          isNew = true
-        }
-
-        const dataToSave = { ...addingData, id: currentId, isInfo: addingIsInfo }
-        if (isNew) {
-          setAddingData(prev => ({ ...prev, id: currentId }))
-          await addTreatment(dataToSave)
-        } else {
-          await updateTreatment(currentId, dataToSave)
-        }
-        setSaveStatus('saved')
-      } catch (err) {
-        console.error('Autosave error:', err)
-        setSaveStatus('error')
-      }
-    }, 1000)
-
-    return () => clearTimeout(delayDebounceFn)
-  }, [addingData, isAdding, addingIsInfo, addTreatment, updateTreatment])
 
   function handleStartAdd(isInfo) {
     setAddingData(emptyEntry())
     setAddingIsInfo(isInfo)
     setAddingError('')
-    setSaveStatus('idle')
     setIsAdding(true)
   }
 
   function handleAddingDataChange(newData) {
     setAddingData(newData)
-    setSaveStatus('saving')
   }
 
   async function handleSaveAdding() {
@@ -93,17 +47,10 @@ export default function TreatmentLog({ patient, hideFirst = false }) {
     setAddingLoading(true)
     setAddingError('')
     try {
-      let currentId = addingData.id
-      if (!currentId) {
-        const { v4: uuidv4 } = await import('uuid')
-        currentId = uuidv4()
-      }
+      const { v4: uuidv4 } = await import('uuid')
+      const currentId = addingData.id || uuidv4()
       const dataToSave = { ...addingData, id: currentId, isInfo: addingIsInfo }
-      if (!addingData.id) {
-        await addTreatment(dataToSave)
-      } else {
-        await updateTreatment(currentId, dataToSave)
-      }
+      await addTreatment(dataToSave)
       setIsAdding(false)
     } catch {
       setAddingError('שגיאה בשמירה, נסה שוב')
@@ -113,12 +60,12 @@ export default function TreatmentLog({ patient, hideFirst = false }) {
   }
 
   async function handleCancelAdding() {
-    if (addingData.id) {
+    if (addingData.files?.length) {
       setAddingLoading(true)
       try {
-        await deleteTreatment(addingData.id)
+        await Promise.all(addingData.files.map(f => deleteFile(f.storagePath)))
       } catch (err) {
-        console.error('Failed to delete draft:', err)
+        console.error('Failed to cleanup draft files:', err)
       } finally {
         setAddingLoading(false)
       }
@@ -139,18 +86,22 @@ export default function TreatmentLog({ patient, hideFirst = false }) {
     <div className="flex flex-col lg:flex-row gap-6 items-start w-full">
       {/* Right Column: Timeline */}
       <div className="flex-1 flex flex-col gap-3 w-full">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-slate-700">יומן טיפולים</h3>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => handleStartAdd(true)}
-            >
-              + מידע נוסף
-            </Button>
-            <Button size="sm" onClick={() => handleStartAdd(false)}>+ הוסיפי טיפול</Button>
-          </div>
+        <div className="flex items-center justify-start gap-2.5">
+          <Button
+            size="sm"
+            onClick={() => handleStartAdd(false)}
+            className="bg-teal-600 hover:bg-teal-700 text-white shadow-xs font-semibold"
+          >
+            + הוספת טיפול
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleStartAdd(true)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs font-semibold focus:ring-indigo-500"
+          >
+            + מידע נוסף
+          </Button>
         </div>
 
         {loading && <p className="text-sm text-slate-400">טוען...</p>}
@@ -164,32 +115,31 @@ export default function TreatmentLog({ patient, hideFirst = false }) {
                 {addingIsInfo ? 'הוספת מידע נוסף' : `הוספת טיפול חדש (טיפול ${treatments.filter(x => !x.isInfo).length + 1})`}
               </span>
             </div>
-            <TreatmentEntryForm data={addingData} onChange={handleAddingDataChange} isInfo={addingIsInfo} />
+            <TreatmentEntryForm
+              data={addingData}
+              onChange={handleAddingDataChange}
+              isInfo={addingIsInfo}
+              actions={
+                <>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleCancelAdding}
+                    disabled={addingLoading}
+                  >
+                    ביטול
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveAdding}
+                    disabled={addingLoading}
+                  >
+                    {addingLoading ? 'שומר...' : 'שמירה'}
+                  </Button>
+                </>
+              }
+            />
             {addingError && <p className="text-sm text-red-600">{addingError}</p>}
-            <div className="flex gap-2 items-center justify-end pt-2 border-t border-slate-100 w-full">
-              {saveStatus !== 'idle' && (
-                <span className="ml-auto text-xs text-slate-400 font-medium flex items-center gap-1">
-                  {saveStatus === 'saving' && '🔄 שומר אוטומטית...'}
-                  {saveStatus === 'saved' && '✨ כל השינויים נשמרו'}
-                  {saveStatus === 'error' && '⚠️ שגיאה בשמירה האוטומטית'}
-                </span>
-              )}
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleCancelAdding}
-                disabled={addingLoading}
-              >
-                ביטול
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSaveAdding}
-                disabled={addingLoading}
-              >
-                {addingLoading ? 'שומר...' : (addingIsInfo ? 'סיום' : 'סיום')}
-              </Button>
-            </div>
           </div>
         )}
 

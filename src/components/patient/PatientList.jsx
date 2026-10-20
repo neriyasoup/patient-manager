@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { usePatientStore } from '../../store/usePatientStore'
 import { useUIStore } from '../../store/useUIStore'
 import { PATIENT_STATUSES } from '../../constants'
+import { searchPatients } from '../../utils/searchIndex'
 import NewPatientModal from './NewPatientModal'
 import Button from '../ui/Button'
 
@@ -15,7 +16,7 @@ export default function PatientList() {
   const [showNew, setShowNew] = useState(false)
 
   const filtered = listQuery.trim()
-    ? patients.filter(p => `${p.firstName} ${p.lastName} ${p.phone}`.toLowerCase().includes(listQuery.toLowerCase()))
+    ? searchPatients(patients, listQuery)
     : patients
 
   return (

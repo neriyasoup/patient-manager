@@ -15,7 +15,7 @@ export function emptyEntry() {
   return { date: todayStr(), time: nowStr(), notes: '', mainComplaint: '', secondaryComplaint: '', selectedPoints: '', files: [] }
 }
 
-export default function TreatmentEntryForm({ data, onChange, isInfo = false }) {
+export default function TreatmentEntryForm({ data, onChange, isInfo = false, actions = null }) {
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
   const uid = useAuthStore(s => s.user?.uid)
@@ -60,25 +60,31 @@ export default function TreatmentEntryForm({ data, onChange, isInfo = false }) {
         <Input label="שעה" type="time" {...field('time')} />
       </div>
       {!isInfo && (
-        <>
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="תלונה ראשית" placeholder="כאב ראש, בעיות שינה..." {...field('mainComplaint')} />
-            <Input label="תלונה משנית" placeholder="כאבי גב, עייפות..." {...field('secondaryComplaint')} />
-          </div>
-          <Input label="נקודות טיפול שנבחרו" placeholder="LI4, ST36, LV3..." {...field('selectedPoints')} />
-        </>
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="תלונה ראשית" placeholder="כאב ראש, בעיות שינה..." {...field('mainComplaint')} />
+          <Input label="תלונה משנית" placeholder="כאבי גב, עייפות..." {...field('secondaryComplaint')} />
+        </div>
       )}
       <Textarea label="הערות טיפול" rows={5} placeholder="תיאור הטיפול, נקודות, תגובות..." {...field('notes')} />
-      <div>
-        <p className="text-xs font-medium text-slate-600 mb-1.5">צרף קבצים</p>
-        <FileUploader onFiles={handleFiles} />
-        {uploading && <p className="text-xs text-slate-400 mt-1">מעלה...</p>}
-        {uploadError && <p className="text-xs text-red-500 mt-1">{uploadError}</p>}
-        {data.files?.length > 0 && (
-          <div className="grid grid-cols-4 gap-2 mt-2">
-            {data.files.map(f => (
-              <FileCard key={f.id} file={f} onDelete={handleDeleteFile} />
-            ))}
+      {!isInfo && (
+        <Input label="נקודות טיפול שנבחרו" placeholder="LI4, ST36, LV3..." {...field('selectedPoints')} />
+      )}
+      {data.files?.length > 0 && (
+        <div className="grid grid-cols-4 gap-2">
+          {data.files.map(f => (
+            <FileCard key={f.id} file={f} onDelete={handleDeleteFile} />
+          ))}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 w-full">
+        <div className="flex items-center gap-2 flex-wrap">
+          <FileUploader compact onFiles={handleFiles} />
+          {uploading && <span className="text-xs text-slate-400">מעלה...</span>}
+          {uploadError && <span className="text-xs text-red-500">{uploadError}</span>}
+        </div>
+        {actions && (
+          <div className="flex gap-2 items-center mr-auto">
+            {actions}
           </div>
         )}
       </div>

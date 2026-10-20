@@ -100,6 +100,10 @@ export default function PatientHeader({ patient }) {
             {patient.phone && <span>📞 {patient.phone}</span>}
             {patient.email && <span>✉️ {patient.email}</span>}
             {patient.address && <span>📍 {patient.address}</span>}
+            {patient.occupation && <span>💼 עיסוק: {patient.occupation}</span>}
+            {patient.maritalStatus && <span>💍 מצב משפחתי: {patient.maritalStatus}</span>}
+            {patient.children && <span>👶 ילדים: {patient.children}</span>}
+            {patient.hobbies && <span>🎨 תחביבים: {patient.hobbies}</span>}
             {patient.patientType === 'child' && (patient.parent1Name || patient.parent2Name) && (
               <span className="text-slate-600 bg-slate-100 rounded px-2 py-0.5 font-medium flex gap-1 text-xs items-center">
                 👥 הורים:

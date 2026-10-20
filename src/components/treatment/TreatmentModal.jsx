@@ -128,19 +128,18 @@ export default function TreatmentModal({ open, onClose, existing, treatmentNumbe
       title={`${modalTitle}${patientName ? ` — ${patientName}` : ''}`}
       maxWidth="max-w-lg"
     >
-      <TreatmentEntryForm data={data} onChange={handleDataChange} isInfo={isInfoMode} />
+      <TreatmentEntryForm
+        data={data}
+        onChange={handleDataChange}
+        isInfo={isInfoMode}
+        actions={
+          <>
+            <Button variant="secondary" size="sm" onClick={handleClose} disabled={loading}>ביטול</Button>
+            <Button size="sm" onClick={handleSave} disabled={loading}>{loading ? 'שומר...' : 'שמירה'}</Button>
+          </>
+        }
+      />
       {error && <p className="text-sm text-red-600">{error}</p>}
-      <div className="flex gap-2 items-center justify-end pt-2">
-        {saveStatus !== 'idle' && (
-          <span className="ml-auto text-xs text-slate-400 font-medium flex items-center gap-1">
-            {saveStatus === 'saving' && '🔄 שומר אוטומטית...'}
-            {saveStatus === 'saved' && '✨ השינויים נשמרו'}
-            {saveStatus === 'error' && '⚠️ שגיאה בשמירה'}
-          </span>
-        )}
-        <Button variant="secondary" onClick={handleClose} disabled={loading}>ביטול</Button>
-        <Button onClick={handleSave} disabled={loading}>{loading ? 'שומר...' : 'סיום'}</Button>
-      </div>
     </Modal>
   )
 }

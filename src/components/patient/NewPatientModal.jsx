@@ -5,7 +5,20 @@ import Button from '../ui/Button'
 import { usePatientStore } from '../../store/usePatientStore'
 import { useUIStore } from '../../store/useUIStore'
 
-const EMPTY = { firstName: '', lastName: '', phone: '', email: '', address: '', dob: '', status: 'active', balance: '' }
+const EMPTY = {
+  firstName: '',
+  lastName: '',
+  phone: '',
+  email: '',
+  address: '',
+  occupation: '',
+  hobbies: '',
+  maritalStatus: '',
+  children: '',
+  dob: '',
+  status: 'active',
+  balance: '',
+}
 
 export default function NewPatientModal({ open, onClose, initialData }) {
   const [data, setData] = useState(() => ({ ...EMPTY, ...initialData }))
@@ -29,6 +42,10 @@ export default function NewPatientModal({ open, onClose, initialData }) {
         (data.phone && data.phone.trim() !== '') ||
         (data.email && data.email.trim() !== '') ||
         (data.address && data.address.trim() !== '') ||
+        (data.occupation && data.occupation.trim() !== '') ||
+        (data.hobbies && data.hobbies.trim() !== '') ||
+        (data.maritalStatus && data.maritalStatus.trim() !== '') ||
+        (data.children && data.children.trim() !== '') ||
         (data.dob && data.dob !== '') ||
         (data.balance && data.balance !== '')
       )
@@ -68,6 +85,10 @@ export default function NewPatientModal({ open, onClose, initialData }) {
       (data.phone && data.phone.trim() !== '') ||
       (data.email && data.email.trim() !== '') ||
       (data.address && data.address.trim() !== '') ||
+      (data.occupation && data.occupation.trim() !== '') ||
+      (data.hobbies && data.hobbies.trim() !== '') ||
+      (data.maritalStatus && data.maritalStatus.trim() !== '') ||
+      (data.children && data.children.trim() !== '') ||
       (data.dob && data.dob !== '') ||
       (data.balance && data.balance !== '')
     )

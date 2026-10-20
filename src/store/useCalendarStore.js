@@ -160,4 +160,56 @@ export const useCalendarStore = create((set, get) => ({
       }
     }
   },
+
+  async createEvent(token, { summary, description = '', date, startTime, endTime, useSubCalendar = false }) {
+    if (!token) throw new Error('לא מחובר ליומן גוגל')
+    const startDateTime = new Date(`${date}T${startTime}:00`)
+    const endDateTime = new Date(`${date}T${endTime}:00`)
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jerusalem'
+
+    let targetCalId = 'primary'
+    if (useSubCalendar) {
+      const subId = await get().fetchSubCalendarId(token)
+      if (subId) targetCalId = subId
+    }
+
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(targetCalId)}/events`
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        summary,
+        description,
+        start: {
+          dateTime: startDateTime.toISOString(),
+          timeZone,
+        },
+        end: {
+          dateTime: endDateTime.toISOString(),
+          timeZone,
+        },
+      }),
+    })
+
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        throw new Error('נדרשת התחברות מחדש ליומן גוגל כדי לאפשר הוספת אירועים (לחץ על "התחבר מחדש ליומן")')
+      }
+      let msg = res.statusText
+      try {
+        const errData = await res.json()
+        if (errData?.error?.message) msg = errData.error.message
+      } catch {
+        // ignore
+      }
+      throw new Error(`שגיאה ביצירת אירוע בגוגל: ${msg}`)
+    }
+
+    const created = await res.json()
+    await get().fetchEvents(token)
+    return created
+  },
 }))

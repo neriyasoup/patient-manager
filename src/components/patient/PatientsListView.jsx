@@ -4,6 +4,7 @@ import { usePatientStore } from '../../store/usePatientStore'
 import { useUIStore } from '../../store/useUIStore'
 import { PATIENT_STATUSES } from '../../constants'
 import { calcAge } from '../../utils/age'
+import { searchPatients } from '../../utils/searchIndex'
 import PatientStatusBadge from './PatientStatusBadge'
 import Button from '../ui/Button'
 import EmptyState from '../ui/EmptyState'
@@ -32,17 +33,8 @@ export default function PatientsListView() {
   const [editTarget, setEditTarget] = useState(null)
   const [updating, setUpdating] = useState(false)
 
-  const filtered = patients.filter(p => {
-    const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase()
-    const searchMatch =
-      !query.trim() ||
-      fullName.includes(query.toLowerCase()) ||
-      (p.phone || '').includes(query) ||
-      (p.email || '').toLowerCase().includes(query.toLowerCase())
-
-    const statusMatch = statusFilter === 'all' || p.status === statusFilter
-    return searchMatch && statusMatch
-  })
+  const searched = query.trim() ? searchPatients(patients, query) : patients
+  const filtered = searched.filter(p => statusFilter === 'all' || p.status === statusFilter)
 
   function handleSelect(id) {
     selectPatient(id)

@@ -21,8 +21,12 @@ export default function PatientForm({ data, onChange }) {
       <Input label="שם משפחה *" {...field('lastName')} />
       <Input label="טלפון" type="tel" {...field('phone')} />
       <Input label="אימייל" type="email" {...field('email')} />
+      <Input label="מקום מגורים" placeholder="עיר / יישוב / כתובת..." {...field('address')} />
+      <Input label="עיסוק" placeholder="מקצוע / תפקיד..." {...field('occupation')} />
+      <Input label="מצב משפחתי" placeholder="רווק/ה, נשוי/אה, גרוש/ה..." {...field('maritalStatus')} />
+      <Input label="ילדים" placeholder="מספר ילדים / שמות וגילאים..." {...field('children')} />
       <div className="col-span-2">
-        <Input label="כתובת" {...field('address')} />
+        <Input label="תחביבים" placeholder="ספורט, קריאה, מוזיקה..." {...field('hobbies')} />
       </div>
       <Input label="תאריך לידה" type="date" {...field('dob')} />
       <Input label="יתרת חוב (₪)" type="number" {...field('balance')} />
