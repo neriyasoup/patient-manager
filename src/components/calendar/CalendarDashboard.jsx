@@ -89,36 +89,67 @@ const formatHebrewDate = (dateStr) => {
   return date.toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 }
 
+const STOP_WORDS = new Set([
+  'פגישה', 'טיפול', 'דיקור', 'שיחה', 'שיעור', 'סדנה', 'קליניקה', 'יומן', 'תור',
+  'בגן', 'על', 'עם', 'של', 'את', 'זה', 'כל', 'בית', 'גן', 'יום', 'לקבוע', 'חוזר',
+  'ראשון', 'אבחון', 'סשן', 'מפגש', 'זום', 'שעה', 'בוקר', 'ערב', 'צהריים', 'גאלה',
+  'ג\'אלה', 'לומדות', 'יוגה', 'פלדנקרייז', 'בדיקה', 'מעקב'
+])
+
 // Matching Algorithm
 const matchPatient = (eventTitle, patients) => {
   if (!eventTitle) return null
   const titleClean = eventTitle.toLowerCase().trim()
 
+  // 1. Exact full name or reversed full name
   for (const patient of patients) {
     const fullName = `${patient.firstName} ${patient.lastName}`.toLowerCase().trim()
     const reversedName = `${patient.lastName} ${patient.firstName}`.toLowerCase().trim()
 
     if (titleClean === fullName || titleClean === reversedName) {
-      return patient
+      return { ...patient, _matchType: 'exact' }
     }
   }
 
+  // 2. Contains full name (if length > 3)
   for (const patient of patients) {
     const fullName = `${patient.firstName} ${patient.lastName}`.toLowerCase().trim()
     if (titleClean.includes(fullName) && fullName.length > 3) {
-      return patient
+      return { ...patient, _matchType: 'exact' }
     }
   }
 
-  const words = titleClean.split(/[\s\-.,]+/)
+  // 3. Contains both first and last name as distinct words
+  const words = titleClean.split(/[\s\-.,/\\()]+/).filter(Boolean)
   for (const patient of patients) {
-    const firstName = patient.firstName.toLowerCase().trim()
-    const lastName = patient.lastName.toLowerCase().trim()
+    const firstName = (patient.firstName || '').toLowerCase().trim()
+    const lastName = (patient.lastName || '').toLowerCase().trim()
     if (firstName.length > 1 && lastName.length > 1) {
       if (words.includes(firstName) && words.includes(lastName)) {
-        return patient
+        return { ...patient, _matchType: 'words' }
       }
     }
+  }
+
+  // 4. First Name Matching: identify if any patient matches a first-name word in the title
+  const candidates = []
+  for (const patient of patients) {
+    const firstName = (patient.firstName || '').toLowerCase().trim()
+    if (firstName.length >= 2 && !STOP_WORDS.has(firstName)) {
+      if (words.includes(firstName) || titleClean.startsWith(firstName + ' ') || titleClean === firstName) {
+        if (!candidates.some(c => c.id === patient.id)) {
+          candidates.push(patient)
+        }
+      }
+    }
+  }
+
+  if (candidates.length === 1) {
+    return { ...candidates[0], _matchType: 'firstName', _candidateCount: 1 }
+  }
+
+  if (candidates.length > 1) {
+    return { ...candidates[0], _matchType: 'multiCandidate', _candidates: candidates, _candidateCount: candidates.length }
   }
 
   return null
@@ -272,6 +303,25 @@ export default function CalendarDashboard() {
     setWaTemplate(val)
     localStorage.setItem('wa_reminder_template', val)
   }
+
+  // Quick 1-click match helper
+  const handleQuickMatch = async (eventId, patientId) => {
+    if (!uid || !eventId || !patientId) return
+    try {
+      await matchEvent(uid, eventId, patientId)
+    } catch (err) {
+      console.error('Failed to quick match:', err)
+    }
+  }
+
+  // WhatsApp Modal Inline Match State
+  const [waInlineMatchEventId, setWaInlineMatchEventId] = useState(null)
+  const [waInlineMatchSearch, setWaInlineMatchSearch] = useState('')
+
+  // Manual WhatsApp recipient state
+  const [manualWaPatientId, setManualWaPatientId] = useState('')
+  const [manualWaSearch, setManualWaSearch] = useState('')
+  const [manualWaTime, setManualWaTime] = useState('10:00')
 
   // Match Modal State
   const [matchModalOpen, setMatchModalOpen] = useState(false)
@@ -440,7 +490,7 @@ export default function CalendarDashboard() {
       const matched = matches[event.id]
         ? patients.find(p => p.id === matches[event.id])
         : matchPatient(event.summary, patients)
-      if (!matched || !matched.phone) return null
+      if (!matched || matched._matchType === 'multiCandidate' || !matched.phone) return null
       const allDay = !event.start?.dateTime
       const startTime = allDay ? '' : formatEventTime(event.start.dateTime)
       return { event, patient: matched, startTime }
@@ -452,12 +502,29 @@ export default function CalendarDashboard() {
       const matched = matches[event.id]
         ? patients.find(p => p.id === matches[event.id])
         : matchPatient(event.summary, patients)
-      if (!matched || matched.phone) return null
+      if (!matched || matched._matchType === 'multiCandidate' || matched.phone) return null
       const allDay = !event.start?.dateTime
       const startTime = allDay ? '' : formatEventTime(event.start.dateTime)
       return { event, patient: matched, startTime }
     })
     .filter(Boolean)
+
+  const unlinkedAppointmentsToday = events
+    .filter(event => {
+      if (matches[event.id]) return false
+      const matched = matchPatient(event.summary, patients)
+      return !matched || matched._matchType === 'multiCandidate'
+    })
+    .map(event => {
+      const allDay = !event.start?.dateTime
+      const startTime = allDay ? '' : formatEventTime(event.start.dateTime)
+      const matched = matchPatient(event.summary, patients)
+      return {
+        event,
+        startTime,
+        candidates: matched?._candidates || [],
+      }
+    })
 
   const renderContent = () => {
     if (!googleToken) {
@@ -549,7 +616,7 @@ export default function CalendarDashboard() {
               {/* Event Details Content */}
               <div className="flex-1 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex flex-col gap-1.5 text-right">
-                  {matched ? (
+                  {matched && matched._matchType !== 'multiCandidate' ? (
                     <>
                       <div className="flex items-center gap-2 flex-wrap">
                         <button
@@ -558,10 +625,33 @@ export default function CalendarDashboard() {
                         >
                           {matched.firstName} {matched.lastName}
                         </button>
-                        <span className="bg-teal-50 text-teal-700 border border-teal-100 rounded-full px-2 py-0.5 text-[10px] font-semibold">
-                          מטופל רשום
-                        </span>
+                        {matches[event.id] ? (
+                          <span className="bg-teal-50 text-teal-700 border border-teal-100 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+                            מטופל רשום
+                          </span>
+                        ) : matched._matchType === 'firstName' ? (
+                          <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full px-2 py-0.5 text-[10px] font-semibold flex items-center gap-1">
+                            ✨ שיוך אוטומטי לשם פרטי
+                          </span>
+                        ) : (
+                          <span className="bg-teal-50 text-teal-700 border border-teal-100 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+                            מטופל רשום
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenMatchModal(event)}
+                          className="text-[10px] text-slate-400 hover:text-teal-700 underline cursor-pointer"
+                          title="שנה שיוך פגישה זו למטופל אחר"
+                        >
+                          שנה שיוך
+                        </button>
                       </div>
+                      {event.summary && event.summary !== `${matched.firstName} ${matched.lastName}` && (
+                        <p className="text-[11px] text-slate-400">
+                          כותרת ביומן: {event.summary}
+                        </p>
+                      )}
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500 items-center">
                         {matched.phone ? (
                           <span className="flex items-center gap-1 font-medium text-slate-700">
@@ -606,6 +696,23 @@ export default function CalendarDashboard() {
                           🔗 שייך למטופל
                         </button>
                       </div>
+
+                      {matched?._candidates?.length > 1 && (
+                        <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                          <span className="text-xs text-amber-800 font-semibold">נמצאו מספר התאמות:</span>
+                          {matched._candidates.map(cand => (
+                            <button
+                              key={cand.id}
+                              type="button"
+                              onClick={() => handleQuickMatch(event.id, cand.id)}
+                              className="bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs px-2.5 py-0.5 rounded-md font-semibold transition-colors cursor-pointer"
+                            >
+                              ✓ {cand.firstName} {cand.lastName}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
                       {event.description && (
                         <p className="text-xs text-slate-400 line-clamp-1 max-w-md">
                           {event.description}
@@ -617,7 +724,7 @@ export default function CalendarDashboard() {
 
                 {/* Quick Action Buttons */}
                 <div className="flex gap-2 shrink-0 items-center flex-wrap">
-                  {matched ? (
+                  {matched && matched._matchType !== 'multiCandidate' ? (
                     <>
                       {matched.phone ? (
                         <>
@@ -1117,6 +1224,189 @@ export default function CalendarDashboard() {
                 </div>
               </div>
             )}
+
+            {/* Unlinked Events Section inside WhatsApp Modal */}
+            {unlinkedAppointmentsToday.length > 0 && (
+              <div className="flex flex-col gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200 mt-2">
+                <span className="text-xs font-bold text-slate-800 flex items-center justify-between">
+                  <span>🔗 פגישות ביומן שעדיין לא שויכו למטופל ({unlinkedAppointmentsToday.length}):</span>
+                  <span className="text-[10px] text-slate-500 font-normal">שייך פגישה לשליחת תזכורת</span>
+                </span>
+                <div className="flex flex-col gap-2 max-h-56 overflow-y-auto">
+                  {unlinkedAppointmentsToday.map(({ event, startTime, candidates }) => {
+                    const isMatchingThis = waInlineMatchEventId === event.id
+                    const filtered = waInlineMatchSearch.trim() === ''
+                      ? patients.slice(0, 8)
+                      : searchPatients(patients, waInlineMatchSearch).slice(0, 8)
+
+                    return (
+                      <div
+                        key={event.id}
+                        className="flex flex-col gap-2 bg-white border border-slate-200 rounded-lg p-2.5 text-xs shadow-xs"
+                      >
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div>
+                            <span className="font-bold text-slate-800">{event.summary || '(ללא כותרת)'}</span>
+                            <span className="text-slate-400 mx-1.5">|</span>
+                            <span className="text-teal-700 font-semibold">{startTime || 'יום שלם'}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {candidates.map(cand => (
+                              <button
+                                key={cand.id}
+                                type="button"
+                                onClick={() => handleQuickMatch(event.id, cand.id)}
+                                className="bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-[11px] px-2 py-1 rounded font-semibold transition-colors cursor-pointer"
+                                title={`שייך מיד ל-${cand.firstName} ${cand.lastName}`}
+                              >
+                                ✓ שייך ל-{cand.firstName} {cand.lastName}
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isMatchingThis) {
+                                  setWaInlineMatchEventId(null)
+                                } else {
+                                  setWaInlineMatchEventId(event.id)
+                                  setWaInlineMatchSearch('')
+                                }
+                              }}
+                              className="text-[11px] text-teal-700 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 px-2.5 py-1 rounded border border-teal-200 font-medium transition-colors cursor-pointer"
+                            >
+                              {isMatchingThis ? 'סגור חיפוש' : '🔗 בחר מטופל...'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {isMatchingThis && (
+                          <div className="flex flex-col gap-1.5 bg-slate-50 p-2 rounded border border-teal-200 mt-1">
+                            <input
+                              type="text"
+                              placeholder="חפש מטופל לפי שם או טלפון..."
+                              value={waInlineMatchSearch}
+                              onChange={(e) => setWaInlineMatchSearch(e.target.value)}
+                              className="w-full text-xs p-1.5 border border-slate-300 rounded bg-white focus:outline-none focus:border-teal-500"
+                              autoFocus
+                            />
+                            <div className="flex flex-col gap-1 max-h-36 overflow-y-auto divide-y divide-slate-100">
+                              {filtered.map(p => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => {
+                                    handleQuickMatch(event.id, p.id)
+                                    setWaInlineMatchEventId(null)
+                                  }}
+                                  className="flex items-center justify-between p-1.5 text-right hover:bg-teal-50 rounded text-xs transition-colors cursor-pointer"
+                                >
+                                  <span className="font-semibold text-slate-800">{p.firstName} {p.lastName}</span>
+                                  {p.phone && <span className="text-slate-500 text-[11px]">📞 {p.phone}</span>}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Manual Reminder to ANY patient */}
+            <div className="flex flex-col gap-2 p-3 bg-teal-50/50 rounded-lg border border-teal-200 mt-2">
+              <span className="text-xs font-bold text-teal-900 flex items-center gap-1">
+                <span>💬 שליחת תזכורת ידנית לכל מטופל:</span>
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                <div className="sm:col-span-2">
+                  <input
+                    type="text"
+                    placeholder="הקלד שם מטופל לחיפוש..."
+                    value={manualWaSearch}
+                    onChange={(e) => {
+                      setManualWaSearch(e.target.value)
+                      setManualWaPatientId('')
+                    }}
+                    className="w-full text-xs p-2 border border-slate-300 rounded bg-white focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="time"
+                    value={manualWaTime}
+                    onChange={(e) => setManualWaTime(e.target.value)}
+                    className="w-full text-xs p-1.5 border border-slate-300 rounded bg-white focus:outline-none focus:border-teal-500 text-center"
+                  />
+                </div>
+              </div>
+
+              {manualWaSearch.trim() !== '' && !manualWaPatientId && (
+                <div className="border border-slate-200 rounded-lg max-h-32 overflow-y-auto divide-y divide-slate-100 bg-white shadow-xs">
+                  {searchPatients(patients, manualWaSearch).slice(0, 6).map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        setManualWaPatientId(p.id)
+                        setManualWaSearch(`${p.firstName} ${p.lastName}`)
+                      }}
+                      className="w-full text-right p-2 text-xs hover:bg-teal-50 flex items-center justify-between cursor-pointer"
+                    >
+                      <span className="font-semibold text-slate-800">{p.firstName} {p.lastName}</span>
+                      {p.phone && <span className="text-slate-500 text-[11px]">📞 {p.phone}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {manualWaPatientId && (() => {
+                const p = patients.find(pat => pat.id === manualWaPatientId)
+                if (!p) return null
+                return (
+                  <div className="flex items-center justify-between bg-white border border-teal-200 p-2 rounded-lg text-xs mt-1">
+                    <div>
+                      <span className="font-bold text-slate-800">{p.firstName} {p.lastName}</span>
+                      <span className="text-slate-400 mx-1.5">|</span>
+                      <span className="text-teal-700 font-semibold">{manualWaTime}</span>
+                      {p.phone && (
+                        <>
+                          <span className="text-slate-400 mx-1.5">|</span>
+                          <span className="text-slate-500">{p.phone}</span>
+                        </>
+                      )}
+                    </div>
+                    {p.phone ? (
+                      <a
+                        href={buildWaReminderUrl(p.phone, waTemplate, {
+                          name: p.firstName,
+                          date: formatShortDate(selectedDate),
+                          time: manualWaTime,
+                        })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-1 px-3 rounded text-xs transition-colors"
+                      >
+                        <WhatsAppIcon />
+                        <span>שלח תזכורת</span>
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuickPhonePatient(p)
+                          setQuickPhoneValue('')
+                        }}
+                        className="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-1 px-2.5 rounded text-xs"
+                      >
+                        + הוסף טלפון
+                      </button>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
           </div>
 
           <div className="flex justify-end pt-2 border-t border-slate-100">
