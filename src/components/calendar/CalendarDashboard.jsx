@@ -212,6 +212,7 @@ export default function CalendarDashboard() {
   const matchEvent = useCalendarStore(s => s.matchEvent)
 
   const patients = usePatientStore(s => s.patients)
+  const updatePatient = usePatientStore(s => s.updatePatient)
   const selectPatient = useUIStore(s => s.selectPatient)
 
   // View Mode: 'daily' | 'gcal'
@@ -220,6 +221,32 @@ export default function CalendarDashboard() {
 
   const [newPatientOpen, setNewPatientOpen] = useState(false)
   const [prefilledData, setPrefilledData] = useState(null)
+
+  // Quick Phone Modal State
+  const [quickPhonePatient, setQuickPhonePatient] = useState(null)
+  const [quickPhoneValue, setQuickPhoneValue] = useState('')
+  const [quickPhoneSaving, setQuickPhoneSaving] = useState(false)
+  const [quickPhoneError, setQuickPhoneError] = useState('')
+
+  const handleSaveQuickPhone = async () => {
+    if (!quickPhonePatient) return
+    const phoneTrimmed = quickPhoneValue.trim()
+    if (!phoneTrimmed) {
+      setQuickPhoneError('נא להזין מספר טלפון')
+      return
+    }
+    setQuickPhoneSaving(true)
+    setQuickPhoneError('')
+    try {
+      await updatePatient(quickPhonePatient.id, { phone: phoneTrimmed })
+      setQuickPhonePatient(null)
+      setQuickPhoneValue('')
+    } catch (err) {
+      setQuickPhoneError(err.message || 'שגיאה בשמירת מספר הטלפון')
+    } finally {
+      setQuickPhoneSaving(false)
+    }
+  }
 
   // Add Treatment / Appointment Modal State
   const [addEventOpen, setAddEventOpen] = useState(false)
@@ -420,6 +447,18 @@ export default function CalendarDashboard() {
     })
     .filter(Boolean)
 
+  const matchedMissingPhoneToday = events
+    .map(event => {
+      const matched = matches[event.id]
+        ? patients.find(p => p.id === matches[event.id])
+        : matchPatient(event.summary, patients)
+      if (!matched || matched.phone) return null
+      const allDay = !event.start?.dateTime
+      const startTime = allDay ? '' : formatEventTime(event.start.dateTime)
+      return { event, patient: matched, startTime }
+    })
+    .filter(Boolean)
+
   const renderContent = () => {
     if (!googleToken) {
       return (
@@ -524,11 +563,24 @@ export default function CalendarDashboard() {
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500 items-center">
-                        {matched.phone && (
-                          <span className="flex items-center gap-1">
+                        {matched.phone ? (
+                          <span className="flex items-center gap-1 font-medium text-slate-700">
                             <PhoneIcon />
                             {matched.phone}
                           </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQuickPhonePatient(matched)
+                              setQuickPhoneValue('')
+                              setQuickPhoneError('')
+                            }}
+                            className="text-[11px] text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded border border-amber-200 font-medium cursor-pointer flex items-center gap-1"
+                          >
+                            <span>⚠️ ללא טלפון</span>
+                            <span className="underline">+ הוסף</span>
+                          </button>
                         )}
                         {matched.balance && Number(matched.balance) > 0 && (
                           <span className="text-red-600 font-semibold bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
@@ -567,7 +619,7 @@ export default function CalendarDashboard() {
                 <div className="flex gap-2 shrink-0 items-center flex-wrap">
                   {matched ? (
                     <>
-                      {matched.phone && (
+                      {matched.phone ? (
                         <>
                           <a
                             href={buildWaReminderUrl(matched.phone, waTemplate, {
@@ -591,6 +643,20 @@ export default function CalendarDashboard() {
                             <span>SMS</span>
                           </a>
                         </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setQuickPhonePatient(matched)
+                            setQuickPhoneValue('')
+                            setQuickPhoneError('')
+                          }}
+                          className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold py-1.5 px-3 border border-amber-300 rounded-lg text-xs transition-colors shadow-xs cursor-pointer"
+                          title="הזן מספר טלפון כדי לשלוח תזכורת WhatsApp"
+                        >
+                          <PhoneIcon />
+                          <span>+ הוסף טלפון לשליחת WhatsApp</span>
+                        </button>
                       )}
                     </>
                   ) : (
@@ -648,7 +714,10 @@ export default function CalendarDashboard() {
                 className="border-green-300 bg-green-50 text-green-800 hover:bg-green-100 font-semibold"
               >
                 <WhatsAppIcon />
-                <span>תזכורות WhatsApp ({matchedAppointmentsToday.length})</span>
+                <span>
+                  תזכורות WhatsApp ({matchedAppointmentsToday.length}
+                  {matchedMissingPhoneToday.length > 0 ? ` + ${matchedMissingPhoneToday.length} ללא טלפון` : ''})
+                </span>
               </Button>
               <div className="flex items-center rounded-lg border border-slate-300 overflow-hidden bg-slate-100 p-0.5 text-xs font-semibold">
                 <button
@@ -1012,6 +1081,42 @@ export default function CalendarDashboard() {
                 ))}
               </div>
             )}
+
+            {matchedMissingPhoneToday.length > 0 && (
+              <div className="flex flex-col gap-2 p-3 bg-amber-50/90 rounded-lg border border-amber-200 mt-2">
+                <span className="text-xs font-bold text-amber-900 flex items-center gap-1">
+                  ⚠️ מטופלים משובצים ליום זה שאין להם מספר טלפון ({matchedMissingPhoneToday.length}):
+                </span>
+                <p className="text-[11px] text-amber-800 leading-snug">
+                  כדי שתוכל לשלוח להם תזכורת WhatsApp, לחץ על "הוסף טלפון" והזן את המספר שלהם:
+                </p>
+                <div className="flex flex-col gap-1.5 mt-1">
+                  {matchedMissingPhoneToday.map(({ event, patient: p, startTime }) => (
+                    <div
+                      key={event.id}
+                      className="flex items-center justify-between bg-white border border-amber-200 rounded px-2.5 py-1.5 text-xs shadow-xs"
+                    >
+                      <div>
+                        <span className="font-bold text-slate-800">{p.firstName} {p.lastName}</span>
+                        <span className="text-slate-400 mx-1.5">|</span>
+                        <span className="text-amber-800 font-semibold">{startTime || 'יום שלם'}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuickPhonePatient(p)
+                          setQuickPhoneValue('')
+                          setQuickPhoneError('')
+                        }}
+                        className="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-1 px-2.5 rounded text-[11px] transition-colors cursor-pointer"
+                      >
+                        + הוסף טלפון
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end pt-2 border-t border-slate-100">
@@ -1105,6 +1210,65 @@ export default function CalendarDashboard() {
               className="bg-teal-600 hover:bg-teal-700 border-teal-600 text-white font-semibold"
             >
               {savingMatch ? 'משייך...' : 'שייך פגישה'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Quick Phone Modal */}
+      <Modal
+        open={Boolean(quickPhonePatient)}
+        onClose={() => {
+          setQuickPhonePatient(null)
+          setQuickPhoneValue('')
+          setQuickPhoneError('')
+        }}
+        title={`הזנת מספר טלפון — ${quickPhonePatient?.firstName || ''} ${quickPhonePatient?.lastName || ''}`}
+        maxWidth="max-w-md"
+      >
+        <div className="flex flex-col gap-4 text-right" dir="rtl">
+          <p className="text-xs text-slate-600">
+            הזן מספר טלפון נייד עבור המטופל. המספר יישמר בכרטיס המטופל ויאפשר שליחת תזכורות WhatsApp ו-SMS בלחיצה אחת.
+          </p>
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">
+              מספר טלפון נייד:
+            </label>
+            <input
+              type="tel"
+              value={quickPhoneValue}
+              onChange={(e) => setQuickPhoneValue(e.target.value)}
+              placeholder="לדוגמה: 0501234567"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 bg-white"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSaveQuickPhone()
+              }}
+            />
+            {quickPhoneError && (
+              <span className="text-xs text-red-600 mt-1 block">{quickPhoneError}</span>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setQuickPhonePatient(null)
+                setQuickPhoneValue('')
+                setQuickPhoneError('')
+              }}
+            >
+              ביטול
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSaveQuickPhone}
+              disabled={quickPhoneSaving}
+              className="bg-teal-600 hover:bg-teal-700 text-white"
+            >
+              {quickPhoneSaving ? 'שומר...' : 'שמור מספר טלפון'}
             </Button>
           </div>
         </div>
