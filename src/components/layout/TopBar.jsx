@@ -48,6 +48,15 @@ export default function TopBar() {
       </Button>
 
       <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate('/billing')}
+        className="text-white hover:bg-white/10"
+      >
+        🧾 חשבוניות
+      </Button>
+
+      <Button
         onClick={() => setShowNew(true)}
         size="sm"
         className="bg-white/10 hover:bg-white/20 text-white border border-white/20"

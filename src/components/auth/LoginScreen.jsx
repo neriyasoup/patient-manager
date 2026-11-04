@@ -12,8 +12,9 @@ export default function LoginScreen() {
     setError('')
     try {
       await login()
-    } catch {
-      setError('ההתחברות נכשלה. נסה שוב.')
+    } catch (err) {
+      console.error('Login failed:', err)
+      setError(`ההתחברות נכשלה. נסה שוב.${err?.code ? ` (${err.code})` : ''}`)
     } finally {
       setLoading(false)
     }

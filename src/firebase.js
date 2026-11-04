@@ -20,4 +20,6 @@ export const storage = getStorage(app)
 export const googleProvider = new GoogleAuthProvider()
 googleProvider.addScope('https://www.googleapis.com/auth/calendar')
 googleProvider.addScope('https://www.googleapis.com/auth/calendar.events')
+// Used by the billing module to email invoices and receipts
+googleProvider.addScope('https://www.googleapis.com/auth/gmail.send')
 

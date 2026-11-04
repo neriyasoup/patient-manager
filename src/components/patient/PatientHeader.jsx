@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { calcAge } from '../../utils/age'
 import PatientStatusBadge from './PatientStatusBadge'
 import Modal from '../ui/Modal'
@@ -26,6 +27,7 @@ export default function PatientHeader({ patient }) {
   const updatePatient = usePatientStore(s => s.updatePatient)
   const deletePatient = usePatientStore(s => s.deletePatient)
   const selectPatient = useUIStore(s => s.selectPatient)
+  const navigate = useNavigate()
 
   const [localNotes, setLocalNotes] = useState(patient.permanentNotes ?? '')
   const [saving, setSaving] = useState(false)
@@ -120,6 +122,12 @@ export default function PatientHeader({ patient }) {
           </div>
         </div>
         <div className="flex gap-1.5 shrink-0">
+          <Button variant="secondary" size="sm" onClick={() => navigate('/billing/invoices/new', { state: { clientId: patient.id } })}>
+            + חשבונית
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => navigate('/billing/receipts/new', { state: { clientId: patient.id } })}>
+            + קבלה
+          </Button>
           <Button variant="secondary" size="sm" onClick={openEdit}>עריכה</Button>
           <Button variant="ghost" size="sm" onClick={() => setDeleteOpen(true)} className="text-red-500 hover:bg-red-50">
             מחק

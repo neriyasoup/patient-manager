@@ -14,3 +14,27 @@ body {
   height: 100vh;
   overflow: hidden;
 }
+
+/* Billing module (invoices/receipts) colors */
+@theme {
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-500: #1e3a5f;
+  --color-brand-600: #162d4a;
+  --color-brand-700: #0f2035;
+}
+
+/* Tailwind 4 defaults borders to the text color; keep the billing pages' light gray borders */
+@layer base {
+  #billing-main *, #billing-main ::after, #billing-main ::before {
+    border-color: var(--color-gray-200, currentColor);
+  }
+}
+
+/* Printing an invoice/receipt: show only the document */
+@media print {
+  .no-print { display: none !important; }
+  #root, body, html { height: auto !important; overflow: visible !important; background: white; }
+  #billing-main { overflow: visible !important; }
+  #print-area { display: block !important; width: 100%; padding: 0; margin: 0; }
+}
