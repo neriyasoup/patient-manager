@@ -1,19 +1,28 @@
 import { useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { usePatientStore } from '../../store/usePatientStore'
 import { useUIStore } from '../../store/useUIStore'
 
-// Browser-style tabs: the calendar plus every open patient file
+// Browser-style tabs: the calendar plus every open patient file.
+// Shown on every page (clinic, patients list, billing); on other pages no tab is
+// highlighted and clicking one goes back to the clinic page.
 export default function PatientTabs() {
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const onClinic = pathname === '/'
   const openPatientIds = useUIStore(s => s.openPatientIds)
   const selectedPatientId = useUIStore(s => s.selectedPatientId)
   const editingForms = useUIStore(s => s.editingForms)
-  const selectPatient = useUIStore(s => s.selectPatient)
+  const selectPatientInStore = useUIStore(s => s.selectPatient)
   const closePatient = useUIStore(s => s.closePatient)
   const reorderPatientTabs = useUIStore(s => s.reorderPatientTabs)
   const patients = usePatientStore(s => s.patients)
   const [dragId, setDragId] = useState(null)
 
-  if (openPatientIds.length === 0) return null
+  function selectPatient(id) {
+    selectPatientInStore(id)
+    if (!onClinic) navigate('/')
+  }
 
   const byId = new Map(patients.map(p => [p.id, p]))
 
@@ -35,9 +44,9 @@ export default function PatientTabs() {
     <div className="shrink-0 bg-slate-100 border-b border-slate-200 px-2 pt-1.5 flex items-end gap-1 overflow-x-auto" role="tablist">
       <button
         role="tab"
-        aria-selected={!selectedPatientId}
+        aria-selected={onClinic && !selectedPatientId}
         onClick={() => selectPatient(null)}
-        className={`${tabBase} ${!selectedPatientId ? activeCls : idleCls}`}
+        className={`${tabBase} ${onClinic && !selectedPatientId ? activeCls : idleCls}`}
         title="יומן ופגישות"
       >
         📅 יומן
@@ -45,7 +54,7 @@ export default function PatientTabs() {
 
       {openPatientIds.map(id => {
         const p = byId.get(id)
-        const active = id === selectedPatientId
+        const active = onClinic && id === selectedPatientId
         const editing = Object.keys(editingForms[id] ?? {}).length > 0
         const name = p ? `${p.firstName} ${p.lastName}` : '...'
         return (

@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import clsx from 'clsx'
 import TopBar from '../../../components/layout/TopBar'
+import PatientTabs from '../../../components/patient/PatientTabs'
 import { useSettingsStore } from '../../store/useSettingsStore'
 
 const tabs = [
@@ -16,7 +17,7 @@ export default function BillingLayout() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      <div className="no-print"><TopBar /></div>
+      <div className="no-print"><TopBar /><PatientTabs /></div>
       <div className="no-print bg-white border-b border-slate-200 px-4 flex items-center gap-1 shrink-0">
         {tabs.map(t => (
           <NavLink
