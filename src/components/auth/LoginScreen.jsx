@@ -6,16 +6,17 @@ export default function LoginScreen() {
   const login = useAuthStore(s => s.login)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const redirectError = useAuthStore(s => s.authError)
+  const shownError = error || (redirectError ? `ההתחברות נכשלה. נסה שוב. (${redirectError})` : '')
 
   async function handleLogin() {
     setLoading(true)
     setError('')
     try {
-      await login()
+      await login() // navigates away to Google; the page reloads signed in
     } catch (err) {
       console.error('Login failed:', err)
       setError(`ההתחברות נכשלה. נסה שוב.${err?.code ? ` (${err.code})` : ''}`)
-    } finally {
       setLoading(false)
     }
   }
@@ -28,7 +29,7 @@ export default function LoginScreen() {
           <h1 className="text-2xl font-bold text-slate-800">מרפאת דיקור</h1>
           <p className="text-sm text-slate-500 mt-1">ניהול מטופלים</p>
         </div>
-        {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+        {shownError && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{shownError}</p>}
         <Button onClick={handleLogin} disabled={loading} size="lg" className="w-full">
           {loading ? 'מתחבר...' : '🔑 כניסה עם Google'}
         </Button>
