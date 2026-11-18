@@ -24,7 +24,7 @@ const BillingSettingsPage = lazyPage(() => import('./billing/pages/SettingsPage'
 
 function AuthWatcher() {
   const user = useAuthStore(s => s.user)
-  const selectedPatientId = useUIStore(s => s.selectedPatientId)
+  const openPatientIds = useUIStore(s => s.openPatientIds)
   const uid = user?.uid
 
   // Billing stores handle a null uid themselves (they clear their data)
@@ -44,10 +44,10 @@ function AuthWatcher() {
     }
   }, [uid])
 
+  // One treatments listener per open patient tab
   useEffect(() => {
-    if (!uid) return
-    useTreatmentStore.getState().init(uid, selectedPatientId)
-  }, [uid, selectedPatientId])
+    useTreatmentStore.getState().sync(uid ?? null, openPatientIds)
+  }, [uid, openPatientIds])
 
   return null
 }

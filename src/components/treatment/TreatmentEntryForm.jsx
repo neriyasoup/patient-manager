@@ -6,6 +6,7 @@ import FileCard from '../files/FileCard'
 import { uploadFile, deleteFile } from '../../utils/storage'
 import { useAuthStore } from '../../store/useAuthStore'
 import { useUIStore } from '../../store/useUIStore'
+import { useCurrentPatientId } from '../patient/PatientContext'
 
 function todayStr() { return new Date().toISOString().slice(0, 10) }
 function nowStr() { return new Date().toTimeString().slice(0, 5) }
@@ -19,7 +20,8 @@ export default function TreatmentEntryForm({ data, onChange, isInfo = false, act
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
   const uid = useAuthStore(s => s.user?.uid)
-  const patientId = useUIStore(s => s.selectedPatientId)
+  const selectedPatientId = useUIStore(s => s.selectedPatientId)
+  const patientId = useCurrentPatientId() ?? selectedPatientId
 
   function field(key) {
     return {

@@ -5,6 +5,7 @@ import TreatmentEntryForm, { emptyEntry } from './TreatmentEntryForm'
 import { useTreatmentStore } from '../../store/useTreatmentStore'
 import { usePatientStore } from '../../store/usePatientStore'
 import { useUIStore } from '../../store/useUIStore'
+import { useCurrentPatientId } from '../patient/PatientContext'
 
 export default function TreatmentModal({ open, onClose, existing, treatmentNumber, nextTreatmentNumber, isInfo = false }) {
   const isInfoMode = existing ? !!existing.isInfo : isInfo
@@ -13,7 +14,8 @@ export default function TreatmentModal({ open, onClose, existing, treatmentNumbe
   const [error, setError] = useState('')
   const addTreatment = useTreatmentStore(s => s.addTreatment)
   const updateTreatment = useTreatmentStore(s => s.updateTreatment)
-  const selectedPatientId = useUIStore(s => s.selectedPatientId)
+  const activePatientId = useUIStore(s => s.selectedPatientId)
+  const selectedPatientId = useCurrentPatientId() ?? activePatientId
   const patient = usePatientStore(s => s.patients.find(p => p.id === selectedPatientId) ?? null)
   const patientName = patient ? `${patient.firstName} ${patient.lastName}` : ''
 
@@ -62,7 +64,7 @@ export default function TreatmentModal({ open, onClose, existing, treatmentNumbe
 
     const delayDebounceFn = setTimeout(async () => {
       try {
-        await updateTreatment(existing.id, data)
+        await updateTreatment(selectedPatientId, existing.id, data)
         setSaveStatus('saved')
       } catch (err) {
         console.error('Autosave error:', err)
@@ -71,7 +73,7 @@ export default function TreatmentModal({ open, onClose, existing, treatmentNumbe
     }, 1000)
 
     return () => clearTimeout(delayDebounceFn)
-  }, [data, open, existing, updateTreatment])
+  }, [data, open, existing, updateTreatment, selectedPatientId])
 
   async function handleSave() {
     if (!data.date) { setError('תאריך הוא שדה חובה'); return }
@@ -79,9 +81,9 @@ export default function TreatmentModal({ open, onClose, existing, treatmentNumbe
     setError('')
     try {
       if (existing) {
-        await updateTreatment(existing.id, data)
+        await updateTreatment(selectedPatientId, existing.id, data)
       } else {
-        await addTreatment({ ...data, isInfo: isInfoMode })
+        await addTreatment(selectedPatientId, { ...data, isInfo: isInfoMode })
       }
       onClose()
     } catch {
@@ -106,7 +108,7 @@ export default function TreatmentModal({ open, onClose, existing, treatmentNumbe
       if (existing && saveStatus !== 'idle') {
         setLoading(true)
         try {
-          await updateTreatment(existing.id, existing)
+          await updateTreatment(selectedPatientId, existing.id, existing)
         } catch (err) {
           console.error('Failed to revert edits:', err)
         } finally {

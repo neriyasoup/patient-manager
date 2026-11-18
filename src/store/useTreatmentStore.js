@@ -7,40 +7,61 @@ import { v4 as uuidv4 } from 'uuid'
 import { db } from '../firebase'
 import { deleteFile } from '../utils/storage'
 
+const EMPTY = { treatments: [], loading: true }
+
+// Treatments are kept per patient, so several patient tabs can be open at once.
 export const useTreatmentStore = create((set, get) => ({
-  treatments: [],
-  loading: true,
+  byPatient: {},          // { [patientId]: { treatments, loading } }
   uid: null,
-  patientId: null,
   allTreatments: [],
   allTreatmentsLoading: false,
   allTreatmentsLoaded: false,
-  _unsubscribe: null,
+  _subs: {},              // { [patientId]: unsubscribe }
 
-  init(uid, patientId) {
-    get()._unsubscribe?.()
-    if (get().uid !== uid) {
+  // Keep one live listener for every open patient tab
+  sync(uid, patientIds) {
+    const state = get()
+    let subs = { ...state._subs }
+    let byPatient = { ...state.byPatient }
+
+    if (state.uid !== uid) {
+      Object.values(subs).forEach(unsub => unsub?.())
+      subs = {}
+      byPatient = {}
       set({ allTreatments: [], allTreatmentsLoaded: false, allTreatmentsLoading: false })
     }
-    if (!patientId) {
-      set({ treatments: [], loading: false, uid, patientId: null, _unsubscribe: null })
-      return
+
+    const wanted = new Set(uid ? patientIds.filter(Boolean) : [])
+    for (const pid of Object.keys(subs)) {
+      if (!wanted.has(pid)) {
+        subs[pid]?.()
+        delete subs[pid]
+        delete byPatient[pid]
+      }
     }
-    const q = query(
-      collection(db, `users/${uid}/patients/${patientId}/treatments`),
-      orderBy('date', 'desc'),
-      orderBy('time', 'desc'),
-    )
-    const unsub = onSnapshot(q,
-      (snap) => {
-        set({ treatments: snap.docs.map(d => d.data()), loading: false })
-      },
-      (err) => {
-        console.error('treatments listener:', err)
-        set({ loading: false })
-      },
-    )
-    set({ uid, patientId, loading: true, _unsubscribe: unsub })
+
+    for (const pid of wanted) {
+      if (subs[pid]) continue
+      byPatient[pid] = { treatments: [], loading: true }
+      const q = query(
+        collection(db, `users/${uid}/patients/${pid}/treatments`),
+        orderBy('date', 'desc'),
+        orderBy('time', 'desc'),
+      )
+      subs[pid] = onSnapshot(q,
+        (snap) => {
+          if (!get()._subs[pid]) return
+          set(s => ({ byPatient: { ...s.byPatient, [pid]: { treatments: snap.docs.map(d => d.data()), loading: false } } }))
+        },
+        (err) => {
+          console.error('treatments listener:', err)
+          if (!get()._subs[pid]) return
+          set(s => ({ byPatient: { ...s.byPatient, [pid]: { ...(s.byPatient[pid] ?? EMPTY), loading: false } } }))
+        },
+      )
+    }
+
+    set({ uid, _subs: subs, byPatient })
   },
 
   async loadAllTreatments() {
@@ -60,8 +81,8 @@ export const useTreatmentStore = create((set, get) => ({
     }
   },
 
-  async addTreatment(data) {
-    const { uid, patientId } = get()
+  async addTreatment(patientId, data) {
+    const { uid } = get()
     const id = data.id || uuidv4()
     const now = new Date().toISOString()
     const entry = { ...data, id, patientId, files: data.files ?? [], createdAt: now, updatedAt: now }
@@ -76,8 +97,8 @@ export const useTreatmentStore = create((set, get) => ({
     return id
   },
 
-  async updateTreatment(id, patch) {
-    const { uid, patientId } = get()
+  async updateTreatment(patientId, id, patch) {
+    const { uid } = get()
     await updateDoc(
       doc(db, `users/${uid}/patients/${patientId}/treatments/${id}`),
       { ...patch, updatedAt: new Date().toISOString() },
@@ -89,9 +110,9 @@ export const useTreatmentStore = create((set, get) => ({
     }))
   },
 
-  async deleteTreatment(id) {
-    const { uid, patientId } = get()
-    const entry = get().treatments.find(t => t.id === id)
+  async deleteTreatment(patientId, id) {
+    const { uid } = get()
+    const entry = (get().byPatient[patientId]?.treatments ?? []).find(t => t.id === id)
     if (entry?.files?.length) {
       await Promise.all(entry.files.map(f => deleteFile(f.storagePath)))
     }
@@ -103,16 +124,16 @@ export const useTreatmentStore = create((set, get) => ({
     }))
   },
 
-  async addFile(treatmentId, fileMeta) {
-    const { uid, patientId } = get()
+  async addFile(patientId, treatmentId, fileMeta) {
+    const { uid } = get()
     await updateDoc(
       doc(db, `users/${uid}/patients/${patientId}/treatments/${treatmentId}`),
       { files: arrayUnion(fileMeta), updatedAt: new Date().toISOString() },
     )
   },
 
-  async removeFile(treatmentId, fileMeta) {
-    const { uid, patientId } = get()
+  async removeFile(patientId, treatmentId, fileMeta) {
+    const { uid } = get()
     await deleteFile(fileMeta.storagePath)
     await updateDoc(
       doc(db, `users/${uid}/patients/${patientId}/treatments/${treatmentId}`),
@@ -120,9 +141,9 @@ export const useTreatmentStore = create((set, get) => ({
     )
   },
 
-  async renameFile(treatmentId, fileMeta, newName) {
-    const { uid, patientId } = get()
-    const treatment = get().treatments.find(t => t.id === treatmentId)
+  async renameFile(patientId, treatmentId, fileMeta, newName) {
+    const { uid } = get()
+    const treatment = (get().byPatient[patientId]?.treatments ?? []).find(t => t.id === treatmentId)
     const newFiles = (treatment?.files ?? []).map(f =>
       f.id === fileMeta.id ? { ...f, name: newName } : f
     )
@@ -132,3 +153,8 @@ export const useTreatmentStore = create((set, get) => ({
     )
   },
 }))
+
+// Treatments (and loading flag) of one patient
+export function usePatientTreatments(patientId) {
+  return useTreatmentStore(s => s.byPatient[patientId] ?? EMPTY)
+}

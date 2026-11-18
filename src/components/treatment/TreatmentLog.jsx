@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { useTreatmentStore } from '../../store/useTreatmentStore'
+import { useState, useEffect } from 'react'
+import { useTreatmentStore, usePatientTreatments } from '../../store/useTreatmentStore'
+import { useUIStore } from '../../store/useUIStore'
 import TreatmentEntry from './TreatmentEntry'
 import TreatmentEntryForm, { emptyEntry } from './TreatmentEntryForm'
 import Button from '../ui/Button'
@@ -18,11 +19,17 @@ function formatDate(dateStr) {
 }
 
 export default function TreatmentLog({ patient, hideFirst = false }) {
-  const treatments = useTreatmentStore(s => s.treatments)
-  const loading = useTreatmentStore(s => s.loading)
+  const { treatments, loading } = usePatientTreatments(patient.id)
   const addTreatment = useTreatmentStore(s => s.addTreatment)
+  const setFormEditing = useUIStore(s => s.setFormEditing)
 
   const [isAdding, setIsAdding] = useState(false)
+
+  // Mark the tab while a new treatment is being written
+  useEffect(() => {
+    setFormEditing(patient.id, 'new', isAdding)
+  }, [patient.id, isAdding, setFormEditing])
+  useEffect(() => () => setFormEditing(patient.id, 'new', false), [patient.id, setFormEditing])
   const [addingIsInfo, setAddingIsInfo] = useState(false)
   const [addingData, setAddingData] = useState(emptyEntry())
   const [addingError, setAddingError] = useState('')
@@ -50,7 +57,7 @@ export default function TreatmentLog({ patient, hideFirst = false }) {
       const { v4: uuidv4 } = await import('uuid')
       const currentId = addingData.id || uuidv4()
       const dataToSave = { ...addingData, id: currentId, isInfo: addingIsInfo }
-      await addTreatment(dataToSave)
+      await addTreatment(patient.id, dataToSave)
       setIsAdding(false)
     } catch {
       setAddingError('שגיאה בשמירה, נסה שוב')

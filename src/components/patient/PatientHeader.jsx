@@ -26,7 +26,7 @@ export default function PatientHeader({ patient }) {
   const [loading, setLoading] = useState(false)
   const updatePatient = usePatientStore(s => s.updatePatient)
   const deletePatient = usePatientStore(s => s.deletePatient)
-  const selectPatient = useUIStore(s => s.selectPatient)
+  const closePatient = useUIStore(s => s.closePatient)
   const navigate = useNavigate()
 
   const [localNotes, setLocalNotes] = useState(patient.permanentNotes ?? '')
@@ -69,8 +69,8 @@ export default function PatientHeader({ patient }) {
     setLoading(true)
     try {
       await deletePatient(patient.id)
-      selectPatient(null)
       setDeleteOpen(false)
+      closePatient(patient.id)
     } finally {
       setLoading(false)
     }

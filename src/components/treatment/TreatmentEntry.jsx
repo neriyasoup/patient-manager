@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import FileCard from '../files/FileCard'
 import Button from '../ui/Button'
 import ConfirmDialog from '../ui/ConfirmDialog'
 import TreatmentEntryForm from './TreatmentEntryForm'
 import { useTreatmentStore } from '../../store/useTreatmentStore'
+import { useUIStore } from '../../store/useUIStore'
+import { useCurrentPatientId } from '../patient/PatientContext'
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
@@ -26,6 +28,14 @@ export default function TreatmentEntry({ entry, index, compact = false }) {
   const deleteTreatment = useTreatmentStore(s => s.deleteTreatment)
   const removeFile = useTreatmentStore(s => s.removeFile)
   const renameFile = useTreatmentStore(s => s.renameFile)
+  const setFormEditing = useUIStore(s => s.setFormEditing)
+  const patientId = useCurrentPatientId() ?? entry.patientId
+
+  // Mark the tab while this entry is being edited
+  useEffect(() => {
+    setFormEditing(patientId, `edit-${entry.id}`, isEditing)
+  }, [patientId, entry.id, isEditing, setFormEditing])
+  useEffect(() => () => setFormEditing(patientId, `edit-${entry.id}`, false), [patientId, entry.id, setFormEditing])
 
   function handleStartEdit() {
     setEditData({ ...entry })
@@ -47,7 +57,7 @@ export default function TreatmentEntry({ entry, index, compact = false }) {
     setSaving(true)
     setEditError('')
     try {
-      await updateTreatment(entry.id, editData)
+      await updateTreatment(patientId, entry.id, editData)
       setIsEditing(false)
       setEditData(null)
     } catch {
@@ -59,16 +69,16 @@ export default function TreatmentEntry({ entry, index, compact = false }) {
 
   async function handleDelete() {
     setLoading(true)
-    try { await deleteTreatment(entry.id) } finally { setLoading(false) }
+    try { await deleteTreatment(patientId, entry.id) } finally { setLoading(false) }
     setDeleteOpen(false)
   }
 
   async function handleDeleteFile(fileMeta) {
-    await removeFile(entry.id, fileMeta)
+    await removeFile(patientId, entry.id, fileMeta)
   }
 
   async function handleRenameFile(fileMeta, newName) {
-    await renameFile(entry.id, fileMeta, newName)
+    await renameFile(patientId, entry.id, fileMeta, newName)
   }
 
   if (isEditing && editData) {
