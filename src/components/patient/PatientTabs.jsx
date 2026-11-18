@@ -1,7 +1,119 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { usePatientStore } from '../../store/usePatientStore'
 import { useUIStore } from '../../store/useUIStore'
+import { searchPatients } from '../../utils/searchIndex'
+
+// "+" at the end of the tab row: opens a small search box to open another patient tab
+function AddPatientTab({ onPick, openIds }) {
+  const patients = usePatientStore(s => s.patients)
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [highlight, setHighlight] = useState(0)
+  const [pos, setPos] = useState(null)
+  const buttonRef = useRef(null)
+  const panelRef = useRef(null)
+
+  const results = useMemo(() => searchPatients(patients, query).slice(0, 8), [patients, query])
+
+  function toggle() {
+    if (open) { setOpen(false); return }
+    const r = buttonRef.current.getBoundingClientRect()
+    // RTL: the panel's right edge sits under the button, clamped to the window
+    const width = 288
+    const right = Math.max(8, Math.min(window.innerWidth - r.right, window.innerWidth - width - 8))
+    setPos({ top: r.bottom + 4, right })
+    setQuery('')
+    setHighlight(0)
+    setOpen(true)
+  }
+
+  function pick(p) {
+    setOpen(false)
+    onPick(p.id)
+  }
+
+  // Close on outside click or window resize
+  useEffect(() => {
+    if (!open) return
+    const onDown = e => {
+      if (!panelRef.current?.contains(e.target) && !buttonRef.current?.contains(e.target)) setOpen(false)
+    }
+    const close = () => setOpen(false)
+    document.addEventListener('mousedown', onDown)
+    window.addEventListener('resize', close)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      window.removeEventListener('resize', close)
+    }
+  }, [open])
+
+  function onKeyDown(e) {
+    if (e.key === 'Escape') { setOpen(false); return }
+    if (!results.length) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight(h => (h + 1) % results.length) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlight(h => (h - 1 + results.length) % results.length) }
+    else if (e.key === 'Enter') { e.preventDefault(); pick(results[Math.min(highlight, results.length - 1)]) }
+  }
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        onClick={toggle}
+        className={`shrink-0 self-center w-7 h-7 mb-0.5 flex items-center justify-center rounded-md text-lg leading-none transition-colors ${
+          open ? 'bg-slate-300/70 text-slate-800' : 'text-slate-500 hover:bg-slate-200 hover:text-slate-800'
+        }`}
+        aria-label="פתיחת תיק מטופל בטאב חדש"
+        aria-expanded={open}
+        title="פתיחת תיק מטופל בטאב חדש"
+      >
+        +
+      </button>
+
+      {open && pos && (
+        <div
+          ref={panelRef}
+          style={{ top: pos.top, right: pos.right }}
+          className="fixed z-50 w-72 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden"
+        >
+          <div className="p-2 border-b border-slate-100">
+            <input
+              autoFocus
+              value={query}
+              onChange={e => { setQuery(e.target.value); setHighlight(0) }}
+              onKeyDown={onKeyDown}
+              placeholder="חיפוש מטופל לפי שם או טלפון..."
+              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-right focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+            />
+          </div>
+          {query.trim() && results.length === 0 && (
+            <p className="px-4 py-3 text-xs text-slate-400 text-center">לא נמצאו מטופלים</p>
+          )}
+          {results.map((p, idx) => (
+            <button
+              key={p.id}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => pick(p)}
+              onMouseEnter={() => setHighlight(idx)}
+              className={`w-full text-right px-4 py-2 flex items-center justify-between gap-2 border-b border-slate-100 last:border-0 ${
+                idx === highlight ? 'bg-teal-50' : 'bg-white'
+              }`}
+            >
+              <span className="flex flex-col gap-0.5 min-w-0">
+                <span className="font-medium text-sm text-slate-800 truncate">{p.firstName} {p.lastName}</span>
+                {p.phone && <span className="text-xs text-slate-500">{p.phone}</span>}
+              </span>
+              {openIds.includes(p.id) && (
+                <span className="shrink-0 text-[10px] text-teal-700 bg-teal-50 border border-teal-100 rounded-full px-2 py-0.5">פתוח</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
 
 // Browser-style tabs: the calendar plus every open patient file.
 // Shown on every page (clinic, patients list, billing); on other pages no tab is
@@ -85,6 +197,8 @@ export default function PatientTabs() {
           </div>
         )
       })}
+
+      <AddPatientTab onPick={selectPatient} openIds={openPatientIds} />
     </div>
   )
 }
