@@ -61,8 +61,10 @@ function AddPatientTab({ onPick, openIds }) {
       <button
         ref={buttonRef}
         onClick={toggle}
-        className={`shrink-0 self-center w-7 h-7 mb-0.5 flex items-center justify-center rounded-md text-lg leading-none transition-colors ${
-          open ? 'bg-slate-300/70 text-slate-800' : 'text-slate-500 hover:bg-slate-200 hover:text-slate-800'
+        className={`shrink-0 self-center w-6 h-6 mb-0.5 mr-1 flex items-center justify-center rounded border text-base leading-none transition-colors ${
+          open
+            ? 'bg-slate-200 text-slate-800 border-slate-500'
+            : 'text-slate-500 border-slate-300 hover:bg-slate-200 hover:text-slate-800 hover:border-slate-500'
         }`}
         aria-label="פתיחת תיק מטופל בטאב חדש"
         aria-expanded={open}
